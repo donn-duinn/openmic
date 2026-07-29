@@ -70,7 +70,7 @@ font-size:2.6rem;letter-spacing:.22em;margin:10px 0;font-weight:700}
 .split{font-size:2.2rem;font-weight:800;color:var(--ok)}
 a.inline{color:var(--accent)}
 .mini{display:flex;gap:6px}
-.mini button{width:auto;padding:9px 12px;font-size:.85rem;margin:0;
+.mini button{width:auto;min-width:44px;min-height:44px;padding:10px 13px;font-size:.95rem;margin:0;
 background:var(--line);color:var(--fg)}
 .mini button.go{background:var(--ok);color:#04240f}
 .mini form{margin:0}
@@ -474,21 +474,26 @@ export function hostPage(venue, performers, origin, extra = {}) {
   const base = `/${esc(venue.slug)}/host/${esc(venue.host_token)}`;
   const rows = performers
     .map((p, i) => {
-      const btn = (action, label, cls = '') =>
-        `<form method="post" action="${base}/act"><input type="hidden" name="id" value="${esc(
+      const btn = (action, label, cls = '', confirm = '') =>
+        `<form method="post" action="${base}/act"${
+          confirm ? ` data-confirm="${esc(confirm)}"` : ''
+        }><input type="hidden" name="id" value="${esc(
           p.id,
         )}"><input type="hidden" name="action" value="${action}">
-<button class="${cls}" type="submit">${label}</button></form>`;
+<button class="${cls}" type="submit" title="${esc(label.title || '')}">${
+          label.icon || label
+        }</button></form>`;
       return `<li class="${esc(p.status)}"><span class="num"></span>
 <span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p, { forHost: true }))}${igLink(p)}${
         p.phone ? ' · ' + esc(p.phone) : ''
       }</small></span>
 <span class="mini">
-${p.status === 'waiting' ? btn('onstage', '▶', 'go') : ''}
-${p.status === 'onstage' ? btn('done', '✓', 'go') : ''}
-${i > 0 ? btn('up', '↑') : ''}
-${i < performers.length - 1 ? btn('down', '↓') : ''}
-${btn('remove', '✕')}
+${p.status === 'waiting' ? btn('onstage', { icon: '▶', title: 'On stage now' }, 'go') : ''}
+${p.status === 'onstage' ? btn('done', { icon: '✓', title: 'Finished' }, 'go') : ''}
+${p.status === 'waiting' ? btn('noshow', { icon: '?', title: 'Did not show' }) : ''}
+${i > 0 ? btn('up', { icon: '↑', title: 'Move up' }) : ''}
+${i < performers.length - 1 ? btn('down', { icon: '↓', title: 'Move down' }) : ''}
+${btn('remove', { icon: '✕', title: 'Remove from the list' }, '', `Remove ${p.name} from tonight's list?`)}
 </span></li>`;
     })
     .join('');

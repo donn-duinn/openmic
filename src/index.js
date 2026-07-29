@@ -220,7 +220,9 @@ async function signupThrottled(env, request, venue, night) {
   )
     .bind(ipHash, venue.slug, since)
     .first();
-  return (row?.n || 0) >= SIGNUP_MAX_PER_WINDOW;
+  // Never below the room's own capacity, or a big night blocks itself.
+  const ceiling = Math.max(SIGNUP_MAX_PER_WINDOW, (venue.capacity || 0) + 10);
+  return (row?.n || 0) >= ceiling;
 }
 
 // Recorded only when someone actually gets on the list. Counting every POST
@@ -273,9 +275,6 @@ async function handleJoin(request, env, venue) {
     return joinOutcome(venue, 'dupe');
   }
 
-  const position = existing.length
-    ? Math.max(...existing.map((p) => p.position)) + 1
-    : 1;
 
   // Opt-in is explicit and defaults off. An email is only stored when they
   // actually ticked the box — otherwise we have no business keeping it.
@@ -289,7 +288,10 @@ async function handleJoin(request, env, venue) {
     const res = await env.DB.prepare(
       `INSERT INTO performers (id, venue_slug, night, name, act, songs, phone, needs,
         instagram, position, status, created_at, label_optin, contact_email)
-       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?,
+              (SELECT COALESCE(MAX(position), 0) + 1 FROM performers
+                WHERE venue_slug = ? AND night = ?),
+              'waiting', ?, ?, ?
         WHERE (SELECT COUNT(*) FROM performers WHERE venue_slug = ? AND night = ?) < ?`,
     )
       .bind(
@@ -302,7 +304,8 @@ async function handleJoin(request, env, venue) {
         clean(form.get('phone'), 20),
         clean(form.get('needs'), 80),
         instagramHandle(form.get('instagram')),
-        position,
+        venue.slug,
+        night,
         new Date().toISOString(),
         optedIn,
         optedIn ? clean(form.get('contact_email'), 90) : '',
@@ -324,7 +327,12 @@ async function handleJoin(request, env, venue) {
   // Redirect on success too, so a refresh or a back button cannot resubmit the
   // form. A nervous person taps that button twice; they should not end up on
   // the list twice or see a browser resend warning.
-  const res = redirect(`/${venue.slug}?joined=${position}`);
+  const placed = await env.DB.prepare(
+    'SELECT position FROM performers WHERE id = ?',
+  )
+    .bind(id)
+    .first();
+  const res = redirect(`/${venue.slug}?joined=${placed ? placed.position : 1}`);
   res.headers.append(
     'set-cookie',
     cookieHeader(meCookieName(venue.slug), id, `/${venue.slug}`),
@@ -397,9 +405,14 @@ async function handleHostAction(request, env, venue) {
   }
 
   if (action === 'reset') {
-    await env.DB.prepare('DELETE FROM performers WHERE venue_slug = ? AND night = ?')
-      .bind(venue.slug, night)
-      .run();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM performers WHERE venue_slug = ? AND night = ?')
+        .bind(venue.slug, night),
+      // Clear the throttle too. Otherwise clearing the list locks everyone who
+      // just signed up out of signing up again.
+      env.DB.prepare('DELETE FROM signup_hits WHERE venue_slug = ? AND night = ?')
+        .bind(venue.slug, night),
+    ]);
     return redirect(base);
   }
 
@@ -432,14 +445,13 @@ async function handleHostAction(request, env, venue) {
   if (action === 'add') {
     const name = clean(form.get('name'), 60);
     if (!name) return redirect(base);
-    const existing = await getPerformers(env, venue.slug, night);
-    const position = existing.length
-      ? Math.max(...existing.map((p) => p.position)) + 1
-      : 1;
     await env.DB.prepare(
       `INSERT INTO performers (id, venue_slug, night, name, act, songs, phone, needs,
         position, status, created_at)
-       VALUES (?, ?, ?, ?, 'Walk-in', ?, '', '', ?, 'waiting', ?)`,
+       SELECT ?, ?, ?, ?, 'Walk-in', ?, '', '',
+              (SELECT COALESCE(MAX(position), 0) + 1 FROM performers
+                WHERE venue_slug = ? AND night = ?),
+              'waiting', ?`,
     )
       .bind(
         newId(),
@@ -447,7 +459,8 @@ async function handleHostAction(request, env, venue) {
         night,
         name,
         clampInt(form.get('songs'), 1, venue.max_songs, 2),
-        position,
+        venue.slug,
+        night,
         new Date().toISOString(),
       )
       .run();
@@ -487,20 +500,28 @@ async function handleHostAction(request, env, venue) {
   }
 
   if (action === 'up' || action === 'down') {
+    // Swapping two rows' position values assumes those values are distinct.
+    // Under a rush they are not: concurrent inserts can land on the same
+    // number, and a swap between two equal values is a silent no-op. The host
+    // taps the arrow, nothing moves, and there is nothing to see.
+    //
+    // So don't swap. Reorder the list in memory and renumber every row from 1.
+    // That is correct whatever state the positions were in, and it repairs any
+    // collisions already in the database on the first tap.
     const list = await getPerformers(env, venue.slug, night);
     const i = list.findIndex((p) => p.id === id);
     const j = action === 'up' ? i - 1 : i + 1;
     if (i !== -1 && j >= 0 && j < list.length) {
-      await env.DB.batch([
-        env.DB.prepare('UPDATE performers SET position = ? WHERE id = ?').bind(
-          list[j].position,
-          list[i].id,
+      const reordered = list.slice();
+      [reordered[i], reordered[j]] = [reordered[j], reordered[i]];
+      await env.DB.batch(
+        reordered.map((p, idx) =>
+          env.DB.prepare('UPDATE performers SET position = ? WHERE id = ?').bind(
+            idx + 1,
+            p.id,
+          ),
         ),
-        env.DB.prepare('UPDATE performers SET position = ? WHERE id = ?').bind(
-          list[i].position,
-          list[j].id,
-        ),
-      ]);
+      );
     }
     return redirect(base);
   }
@@ -641,7 +662,7 @@ export default {
       if (parts[0] === 'rights') return html(rightsPage());
 
       if (parts[0] === 'admin' && parts[1] === 'new') {
-        if (method === 'POST') return handleAdminCreate(request, env, origin);
+        if (method === 'POST') return await handleAdminCreate(request, env, origin);
         return adminForm();
       }
 
@@ -690,7 +711,7 @@ export default {
 
       // /:slug/join
       if (parts[1] === 'join' && method === 'POST') {
-        return handleJoin(request, env, venue);
+        return await handleJoin(request, env, venue);
       }
 
       // /:slug/stage.json — state for the big screen, polled by stage.js
@@ -736,7 +757,7 @@ export default {
         if (!authed) return html(errorPage('Bad host link.', 403), 403);
 
         if (parts[3] === 'act' && method === 'POST') {
-          return handleHostAction(request, env, authed);
+          return await handleHostAction(request, env, authed);
         }
         const hostPerformers = await getPerformers(env, slug, night);
         const [hostNight, hostCrew] = await Promise.all([
