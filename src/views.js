@@ -116,7 +116,7 @@ export function layout(title, body, opts = {}) {
 ${opts.refresh ? `<meta http-equiv="refresh" content="${opts.refresh}">` : ''}
 </head><body>${body}${opts.ui ? '<script src="/static/ui.js" defer></script>' : ''}${
     opts.orderLive ? '<script src="/static/order.js" defer></script>' : ''
-  }${
+  }${opts.apra ? '<script src="/static/apra.js" defer></script>' : ''}${
     opts.stageLive
       ? '<div id="stale" class="lbl" style="display:none;position:fixed;bottom:2vh;left:0;right:0;text-align:center;opacity:.55;font-size:1rem"></div>'
         + '<script src="/static/stage.js" defer></script>'
@@ -750,6 +750,7 @@ we never touch the money.</p>
 <textarea id="g_songs" rows="6" placeholder="Put a * at the start of a line if it was a cover
 My Song Title
 *Somebody Else's Song"></textarea>
+<datalist id="titles"></datalist>
 <p class="notice-small">A line starting with <b>*</b> is treated as a cover:
 still reported, credited to whoever wrote it, not paid to you.</p>
 <button type="submit">Save this gig</button>
@@ -767,6 +768,25 @@ browser data clears it. Export a copy if it matters.</p>
 <button class="btn ghost" id="export">Download as CSV</button>
 <button class="btn ghost" id="copy">Copy as text</button>
 <button class="btn ghost" id="print" data-print="1">Print</button>
+<button class="btn ghost" id="backup">Back up (JSON)</button>
+<label for="restore" class="btn ghost" style="cursor:pointer">Restore a backup</label>
+<input id="restore" type="file" accept="application/json,.json" style="display:none">
+<p class="notice-small">The CSV is for reading. The JSON backup is the one that
+loads back in, on a new phone or after clearing your browser. Restoring adds
+gigs, it never overwrites what is already here.</p>
+</div>
+
+<div class="card token noprint">
+<div class="big">Did this get you paid?</div>
+<p style="margin:12px 0 0">If a report you filed from here turns into actual
+money, I want to know the amount. Not for a testimonial. Because right now
+nobody in this country can tell a funder, a venue or a politician what an
+average grassroots performer is owed, and one real figure is worth more than
+every argument in the business plan.</p>
+<p style="margin:12px 0 0"><a class="inline"
+href="mailto:daniel.j.hogben@gmail.com?subject=A%20performance%20report%20got%20me%20paid&amp;body=Roughly%20how%20much%3A%20%0AHow%20many%20gigs%20were%20on%20it%3A%20%0AAnything%20that%20was%20confusing%3A%20">Tell
+me what it paid</a> — or don't, and use it anyway. There is no tracking on this
+page and there never will be, which is exactly why I have to ask.</p>
 </div>
 
 <h2>What you cannot claim</h2>

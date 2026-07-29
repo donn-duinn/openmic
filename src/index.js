@@ -160,18 +160,22 @@ const ORDER_JS = `(function () {
 // nothing here to leak, subpoena, sell or lose.
 const APRA_JS = `(function () {
   var KEY = 'openmic.apra.gigs.v1';
+  var LAST = 'openmic.apra.last.v1';
   var form = document.getElementById('gigform');
   if (!form) return;
   var out = document.getElementById('gigs');
   var warn = document.getElementById('warnings');
+  var editing = null;
 
   function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
   function save(g) { localStorage.setItem(KEY, JSON.stringify(g)); }
+  function sorted() { return load().sort(function (a, b) { return a.date < b.date ? 1 : -1; }); }
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  function el(id) { return document.getElementById(id); }
   function parseSongs(text) {
     return String(text || '').split('\\n').map(function (l) { return l.trim(); })
       .filter(Boolean).map(function (l) {
@@ -179,18 +183,57 @@ const APRA_JS = `(function () {
         return { title: cover ? l.slice(1).trim() : l, cover: cover };
       });
   }
-  function daysAgo(d) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000); }
-
+  function songsToText(songs) {
+    return songs.map(function (s) { return (s.cover ? '*' : '') + s.title; }).join('\\n');
+  }
+  // Compare calendar days in local time. Parsing 'YYYY-MM-DD' gives UTC
+  // midnight, which made a gig entered this morning read as being in the future.
+  function daysAgo(d) {
+    var p = String(d).split('-');
+    var then = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((today - then) / 86400000);
+  }
   function claimNote(g) {
     var age = daysAgo(g.date);
-    if (age > 1095) return { level: 'bad', text: 'Over three years ago. Outside the claim period.' };
-    if (age > 365) return { level: 'warn', text: 'Over a year ago. Claimable only with evidence such as a poster, ticket or a letter from the venue, and not at all if you joined APRA after this gig.' };
-    if (age < 0) return { level: 'warn', text: 'That date is in the future.' };
+    if (age > 1095) return { level: 'bad', text: 'Over three years ago, which is outside the claim period.' };
+    if (age > 365) return { level: 'warn', text: 'Over a year ago. Claimable only with evidence such as a poster, a ticket or a letter from the venue, and not at all if you joined APRA after this gig.' };
     return null;
   }
 
+  function titles() {
+    var seen = {}, list = [];
+    load().forEach(function (g) {
+      g.songs.forEach(function (s) {
+        var k = s.title.toLowerCase();
+        if (!seen[k]) { seen[k] = 1; list.push(s.title); }
+      });
+    });
+    return list.sort();
+  }
+  function refreshTitles() {
+    var dl = el('titles');
+    if (dl) dl.innerHTML = titles().map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
+  }
+
+  function prefill() {
+    // A residency player types the same venue every week for no reason.
+    var last = {};
+    try { last = JSON.parse(localStorage.getItem(LAST)) || {}; } catch (e) {}
+    if (last.venue && !el('g_venue').value) el('g_venue').value = last.venue;
+    if (last.suburb && !el('g_suburb').value) el('g_suburb').value = last.suburb;
+    if (last.time && !el('g_time').value) el('g_time').value = last.time;
+    if (!el('g_date').value) {
+      var n = new Date();
+      el('g_date').value = n.getFullYear() + '-' +
+        String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+    }
+  }
+
   function render() {
-    var gigs = load().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    var gigs = sorted();
+    refreshTitles();
     if (!gigs.length) {
       out.innerHTML = '<p class="muted">Nothing saved yet. Add one above.</p>';
       warn.innerHTML = '';
@@ -212,7 +255,9 @@ const APRA_JS = `(function () {
         g.songs.map(function (s) {
           return '<li>' + esc(s.title) + (s.cover ? ' <span class="muted">(cover, pays the writer)</span>' : '') + '</li>';
         }).join('') + '</ol>' +
-        '<button class="btn ghost noprint" data-del="' + i + '" style="margin-top:12px">Delete this gig</button></div>';
+        '<div class="noprint" style="display:flex;gap:8px;margin-top:12px">' +
+        '<button class="btn ghost" data-edit="' + i + '" style="margin:0">Edit</button>' +
+        '<button class="btn ghost" data-del="' + i + '" style="margin:0">Delete</button></div></div>';
     }).join('');
     warn.innerHTML = '<div class="card"><b>' + gigs.length + ' gigs</b> \\u00b7 ' +
       originals + ' of your own songs \\u00b7 ' + covers + ' covers' +
@@ -222,61 +267,107 @@ const APRA_JS = `(function () {
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var songs = parseSongs(document.getElementById('g_songs').value);
+    var songs = parseSongs(el('g_songs').value);
     if (!songs.length) { alert('Add at least one song.'); return; }
-    var gigs = load();
-    gigs.push({
-      date: document.getElementById('g_date').value,
-      venue: document.getElementById('g_venue').value.trim(),
-      suburb: document.getElementById('g_suburb').value.trim(),
-      time: document.getElementById('g_time').value,
+    var gig = {
+      date: el('g_date').value,
+      venue: el('g_venue').value.trim(),
+      suburb: el('g_suburb').value.trim(),
+      time: el('g_time').value,
       songs: songs
-    });
+    };
+    var gigs = sorted();
+    if (editing !== null) { gigs[editing] = gig; editing = null; form.querySelector('button[type=submit]').textContent = 'Save this gig'; }
+    else gigs.push(gig);
     save(gigs);
+    localStorage.setItem(LAST, JSON.stringify({ venue: gig.venue, suburb: gig.suburb, time: gig.time }));
     form.reset();
+    prefill();
     render();
+    window.scrollTo({ top: out.offsetTop - 60, behavior: 'smooth' });
   });
 
   document.addEventListener('click', function (e) {
-    var d = e.target && e.target.getAttribute && e.target.getAttribute('data-del');
-    if (d === null || d === undefined) return;
-    if (!confirm('Delete this gig?')) return;
-    var gigs = load().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
-    gigs.splice(Number(d), 1);
-    save(gigs);
-    render();
+    var t = e.target;
+    if (!t || !t.getAttribute) return;
+    var d = t.getAttribute('data-del');
+    var ed = t.getAttribute('data-edit');
+    if (d !== null && d !== undefined) {
+      if (!confirm('Delete this gig?')) return;
+      var gigs = sorted(); gigs.splice(Number(d), 1); save(gigs); render();
+    } else if (ed !== null && ed !== undefined) {
+      var g = sorted()[Number(ed)];
+      editing = Number(ed);
+      el('g_date').value = g.date; el('g_venue').value = g.venue;
+      el('g_suburb').value = g.suburb || ''; el('g_time').value = g.time || '';
+      el('g_songs').value = songsToText(g.songs);
+      form.querySelector('button[type=submit]').textContent = 'Update this gig';
+      window.scrollTo({ top: form.offsetTop - 60, behavior: 'smooth' });
+    }
   });
 
   function rows() {
     var r = [['Date', 'Set time', 'Venue', 'Suburb', 'Song', 'Cover']];
-    load().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (g) {
+    sorted().forEach(function (g) {
       g.songs.forEach(function (s) {
         r.push([g.date, g.time || '', g.venue, g.suburb || '', s.title, s.cover ? 'yes' : 'no']);
       });
     });
     return r;
   }
-
-  document.getElementById('export').addEventListener('click', function () {
-    var csv = rows().map(function (r) {
-      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
-    }).join('\\n');
+  function download(name, text, type) {
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = 'performance-reports.csv';
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name;
     a.click();
+  }
+
+  el('export').addEventListener('click', function () {
+    download('performance-reports.csv', rows().map(function (r) {
+      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\\n'), 'text/csv');
   });
 
-  document.getElementById('copy').addEventListener('click', function () {
-    var text = load().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).map(function (g) {
+  // CSV is for reading. This is the one you can load back in on a new phone.
+  el('backup').addEventListener('click', function () {
+    download('openmic-gigs-backup.json', JSON.stringify(load(), null, 2), 'application/json');
+  });
+
+  el('restore').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var incoming = JSON.parse(r.result);
+        if (!Array.isArray(incoming)) throw 0;
+        var have = load();
+        var key = function (g) { return g.date + '|' + (g.venue || '').toLowerCase(); };
+        var seen = {};
+        have.forEach(function (g) { seen[key(g)] = 1; });
+        var added = 0;
+        incoming.forEach(function (g) { if (!seen[key(g)]) { have.push(g); added++; } });
+        save(have); render();
+        alert('Added ' + added + ' gigs. Nothing was overwritten.');
+      } catch (err) { alert('That file did not look like a backup from here.'); }
+    };
+    r.readAsText(f);
+  });
+
+  el('copy').addEventListener('click', function () {
+    var text = sorted().map(function (g) {
       return g.date + (g.time ? ' ' + g.time : '') + ' \\u2014 ' + g.venue +
         (g.suburb ? ', ' + g.suburb : '') + '\\n' +
         g.songs.map(function (s) { return '  ' + s.title + (s.cover ? ' (cover)' : ''); }).join('\\n');
     }).join('\\n\\n');
-    if (navigator.clipboard) navigator.clipboard.writeText(text);
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () {
+      el('copy').textContent = 'Copied';
+      setTimeout(function () { el('copy').textContent = 'Copy as text'; }, 1500);
+    });
     else window.prompt('Copy this', text);
   });
 
+  prefill();
   render();
 })();`;
 
