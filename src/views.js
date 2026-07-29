@@ -74,6 +74,17 @@ a.inline{color:var(--accent)}
 background:var(--line);color:var(--fg)}
 .mini button.go{background:var(--ok);color:#04240f}
 .mini form{margin:0}
+ol.list li{flex-wrap:wrap}
+details.edit{width:100%;order:9}
+details.edit summary{list-style:none;cursor:pointer;display:inline-block;
+min-width:44px;min-height:44px;padding:10px 13px;border-radius:10px;
+background:var(--line);color:var(--fg);font-size:.95rem;text-align:center}
+details.edit summary::-webkit-details-marker{display:none}
+details.edit[open] summary{background:var(--accent);color:#fff}
+.editform{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px}
+.editform label{margin:8px 0 4px}
+.editform input{padding:10px}
+.editform button{margin-top:12px;padding:12px}
 .stage{text-align:center;padding:6vh 4vw}
 .stage .now{font-size:clamp(2.4rem,11vw,6rem);font-weight:800;line-height:1.05;
 margin:.2em 0;letter-spacing:-.03em}
@@ -104,6 +115,8 @@ export function layout(title, body, opts = {}) {
 <style>${CSS}</style>
 ${opts.refresh ? `<meta http-equiv="refresh" content="${opts.refresh}">` : ''}
 </head><body>${body}${opts.ui ? '<script src="/static/ui.js" defer></script>' : ''}${
+    opts.orderLive ? '<script src="/static/order.js" defer></script>' : ''
+  }${
     opts.stageLive
       ? '<div id="stale" class="lbl" style="display:none;position:fixed;bottom:2vh;left:0;right:0;text-align:center;opacity:.55;font-size:1rem"></div>'
         + '<script src="/static/stage.js" defer></script>'
@@ -244,7 +257,7 @@ your royalties &rarr;</a></p>
 <h2>Tonight's running order (${performers.length})</h2>
 ${
   performers.length
-    ? `<ol class="list">${listed}</ol>`
+    ? `<ol class="list" id="order">${listed}</ol>`
     : '<p class="muted">Nobody yet. Be the first up.</p>'
 }
 <p class="muted" style="margin-top:14px">Updated ${esc(melbourneTime())} · refresh for the latest</p>
@@ -253,7 +266,10 @@ ${ACKNOWLEDGEMENT}
 <div class="foot">Free sign-up sheet for ${esc(venue.name)}<br>built by
 <a href="/">Tech&nbsp;Duinn</a> &middot; <a href="/rights">your rights</a></div>
 </div>`,
-    { refresh: 45 },
+    // No meta refresh. A full-page reload every 45 seconds wiped whatever the
+    // person was typing, shipped 13KB each time, and was 80% of all requests.
+    // /static/order.js updates just the list instead.
+    { orderLive: true },
   );
 }
 
@@ -494,7 +510,20 @@ ${p.status === 'waiting' ? btn('noshow', { icon: '?', title: 'Did not show' }) :
 ${i > 0 ? btn('up', { icon: '↑', title: 'Move up' }) : ''}
 ${i < performers.length - 1 ? btn('down', { icon: '↓', title: 'Move down' }) : ''}
 ${btn('remove', { icon: '✕', title: 'Remove from the list' }, '', `Remove ${p.name} from tonight's list?`)}
-</span></li>`;
+</span>
+<details class="edit"><summary title="Fix a mistake">✎</summary>
+<form method="post" action="${base}/act" class="editform">
+<input type="hidden" name="action" value="edit">
+<input type="hidden" name="id" value="${esc(p.id)}">
+<label>Name<input name="name" maxlength="60" value="${esc(p.name)}" required></label>
+<label>Act<input name="act" maxlength="30" value="${esc(p.act || '')}"></label>
+<label>Songs<input name="songs" type="number" min="1" max="${venue.max_songs}"
+value="${esc(p.songs)}"></label>
+<label>Instagram<input name="instagram" maxlength="60" autocapitalize="none"
+value="${esc(p.instagram || '')}"></label>
+<label>Needs<input name="needs" maxlength="80" value="${esc(p.needs || '')}"></label>
+<button type="submit">Save</button>
+</form></details></li>`;
     })
     .join('');
 

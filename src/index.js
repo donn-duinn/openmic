@@ -110,6 +110,51 @@ const UI_JS = `(function () {
   });
 })();`;
 
+// The sign-up page used to reload itself every 45 seconds. That wiped whatever
+// someone was typing, shipped the whole page each time, and accounted for four
+// out of every five requests the app served. This updates only the list.
+const ORDER_JS = `(function () {
+  var ol = document.getElementById('order');
+  if (!ol) return;
+  var slug = location.pathname.split('/').filter(Boolean)[0];
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function badge(st) {
+    if (st === 'onstage') return '<span class="badge">On now</span>';
+    if (st === 'done') return '<span class="badge grey">Done</span>';
+    if (st === 'noshow') return '<span class="badge grey">No show</span>';
+    return '';
+  }
+  function tick() {
+    // Never interrupt someone mid-typing.
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return;
+    fetch('/' + slug + '/list.json', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) {
+        ol.innerHTML = d.performers.map(function (p) {
+          var line = [];
+          if (p.act) line.push(p.act);
+          line.push(p.songs + (p.songs === 1 ? ' song' : ' songs'));
+          var ig = p.instagram
+            ? ' \u00b7 <a class="inline" href="https://instagram.com/' + esc(p.instagram) +
+              '" target="_blank" rel="noopener nofollow">@' + esc(p.instagram) + '</a>'
+            : '';
+          return '<li class="' + esc(p.status) + '"><span class="num"></span>' +
+            '<span class="who"><b>' + esc(p.name) + '</b><small>' +
+            esc(line.join(' \u00b7 ')) + ig + '</small></span>' + badge(p.status) + '</li>';
+        }).join('');
+      })
+      .catch(function () { /* keep what is on screen */ });
+  }
+  setInterval(tick, 20000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
+  window.addEventListener('online', tick);
+})();`;
+
 // Which performer is this phone? Set on sign-up, scoped to the venue path.
 function meCookieName(slug) {
   return `om_${slug.replace(/[^a-z0-9]/g, '')}`;
@@ -499,6 +544,37 @@ async function handleHostAction(request, env, venue) {
     return redirect(base);
   }
 
+  // Fixing a typo used to mean remove and re-add, which silently destroyed that
+  // person's phone number, Instagram, act type and their place in the order.
+  // Someone spells their own name wrong at 8pm and pays for it all night.
+  if (action === 'edit') {
+    const newName = clean(form.get('name'), 60);
+    if (!newName) return redirect(base);
+    try {
+      await env.DB.prepare(
+        `UPDATE performers
+            SET name = ?, act = ?, songs = ?, instagram = ?, needs = ?
+          WHERE id = ? AND venue_slug = ? AND night = ?`,
+      )
+        .bind(
+          newName,
+          clean(form.get('act'), 30),
+          clampInt(form.get('songs'), 1, venue.max_songs, 2),
+          instagramHandle(form.get('instagram')),
+          clean(form.get('needs'), 80),
+          id,
+          venue.slug,
+          night,
+        )
+        .run();
+    } catch (err) {
+      // Renaming onto someone already on the list hits the unique index.
+      if (!String(err).includes('UNIQUE')) throw err;
+      return redirect(`${base}?e=dupe`);
+    }
+    return redirect(base);
+  }
+
   if (action === 'up' || action === 'down') {
     // Swapping two rows' position values assumes those values are distinct.
     // Under a rush they are not: concurrent inserts can land on the same
@@ -632,6 +708,16 @@ export default {
     try {
       if (parts.length === 0) return html(landingPage());
 
+      if (parts[0] === 'static' && parts[1] === 'order.js') {
+        return new Response(ORDER_JS, {
+          headers: {
+            'content-type': 'application/javascript; charset=utf-8',
+            'cache-control': 'public, max-age=300',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+
       if (parts[0] === 'static' && parts[1] === 'ui.js') {
         return new Response(UI_JS, {
           headers: {
@@ -712,6 +798,20 @@ export default {
       // /:slug/join
       if (parts[1] === 'join' && method === 'POST') {
         return await handleJoin(request, env, venue);
+      }
+
+      // /:slug/list.json — the running order, for the sign-up page
+      if (parts[1] === 'list.json') {
+        const list = await getPerformers(env, slug, night);
+        return json({
+          performers: list.map((p) => ({
+            name: p.name,
+            act: p.act || '',
+            songs: p.songs,
+            instagram: p.instagram || '',
+            status: p.status,
+          })),
+        });
       }
 
       // /:slug/stage.json — state for the big screen, polled by stage.js
