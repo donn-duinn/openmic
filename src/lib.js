@@ -63,6 +63,12 @@ export function html(body, status = 200) {
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'same-origin',
+      // Styles are inline in layout(); there is no JavaScript anywhere in this
+      // app and no external asset of any kind, so the policy can be this tight.
+      'content-security-policy':
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      'x-frame-options': 'DENY',
+      'strict-transport-security': 'max-age=15552000',
     },
   });
 }

@@ -106,11 +106,15 @@ ${opts.refresh ? `<meta http-equiv="refresh" content="${opts.refresh}">` : ''}
 </head><body>${body}</body></html>`;
 }
 
-function actLine(p) {
+// `needs` is a free-text access field. People write real things in it: a
+// wheelchair, a bad ear, a panic thing. It goes to the host, who has to act on
+// it, and to nobody else. Publishing it on the open running order would be
+// broadcasting someone's medical information to a pub.
+function actLine(p, { forHost = false } = {}) {
   const bits = [];
   if (p.act) bits.push(p.act);
   bits.push(`${p.songs} song${p.songs === 1 ? '' : 's'}`);
-  if (p.needs) bits.push(p.needs);
+  if (forHost && p.needs) bits.push(p.needs);
   return bits.join(' · ');
 }
 
@@ -452,7 +456,7 @@ export function hostPage(venue, performers, origin, extra = {}) {
         )}"><input type="hidden" name="action" value="${action}">
 <button class="${cls}" type="submit">${label}</button></form>`;
       return `<li class="${esc(p.status)}"><span class="num"></span>
-<span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p))}${
+<span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p, { forHost: true }))}${
         p.phone ? ' · ' + esc(p.phone) : ''
       }</small></span>
 <span class="mini">

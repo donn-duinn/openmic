@@ -85,8 +85,21 @@ else
 fi
 
 say "Applying schema and migrations"
-$WRANGLER d1 execute "$DB_NAME" --remote --yes --file=./schema.sql >/dev/null 2>&1 \
-  || warn "Schema already applied, or partially. Continuing."
+# schema.sql opens with DROP TABLE IF EXISTS, which SUCCEEDS against a populated
+# database. Running it on an existing deployment wipes every venue, performer and
+# host token, and the old error-swallowing meant the script still printed
+# success. So: only ever run it when there is nothing to lose.
+EXISTING=$($WRANGLER d1 execute "$DB_NAME" --remote --yes --json \
+  --command "SELECT COUNT(*) AS n FROM venues" 2>/dev/null \
+  | grep -oE '"n": *[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
+
+if [ -n "$EXISTING" ]; then
+  warn "Database already has $EXISTING venue(s). Skipping schema.sql, which would DROP them."
+else
+  $WRANGLER d1 execute "$DB_NAME" --remote --yes --file=./schema.sql >/dev/null \
+    || die "Applying schema.sql failed. Nothing else has run. Fix the error above and re-run."
+  warn "Schema applied."
+fi
 for m in $(ls migrations/*.sql 2>/dev/null | sort); do
   $WRANGLER d1 execute "$DB_NAME" --remote --yes --file="$m" >/dev/null 2>&1 \
     && warn "applied $m" \

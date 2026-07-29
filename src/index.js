@@ -103,10 +103,52 @@ async function getPerformers(env, slug, night) {
   return results || [];
 }
 
+// Per-IP sign-up throttle. The screen behind the bar shows performer names at
+// 6rem and refreshes every 15 seconds, so filling a list with junk is the worst
+// thing that can be done to a room without any vulnerability at all.
+const SIGNUP_WINDOW_SECONDS = 120;
+const SIGNUP_MAX_PER_WINDOW = 4;
+
+async function hashIp(request, night) {
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const data = new TextEncoder().encode(`${night}:${ip}`);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function signupThrottled(env, request, venue, night) {
+  const ipHash = await hashIp(request, night);
+  const since = new Date(Date.now() - SIGNUP_WINDOW_SECONDS * 1000).toISOString();
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM signup_hits
+      WHERE ip_hash = ? AND venue_slug = ? AND created_at > ?`,
+  )
+    .bind(ipHash, venue.slug, since)
+    .first();
+  await env.DB.prepare(
+    'INSERT INTO signup_hits (ip_hash, venue_slug, night, created_at) VALUES (?, ?, ?, ?)',
+  )
+    .bind(ipHash, venue.slug, night, new Date().toISOString())
+    .run();
+  return (row?.n || 0) >= SIGNUP_MAX_PER_WINDOW;
+}
+
 async function handleJoin(request, env, venue) {
   const night = melbourneNight();
   const form = await request.formData();
   const name = clean(form.get('name'), 60);
+
+  if (await signupThrottled(env, request, venue, night)) {
+    return html(
+      signupPage(venue, await getPerformers(env, venue.slug, night), {
+        error:
+          'That is a lot of sign-ups from one phone. Wait a couple of minutes, or ask the host to add you.',
+      }),
+      429,
+    );
+  }
 
   if (!venue.signups_open) {
     return html(signupPage(venue, await getPerformers(env, venue.slug, night), {
@@ -145,26 +187,53 @@ async function handleJoin(request, env, venue) {
   const optedIn = form.get('label_optin') === '1' ? 1 : 0;
   const id = newId();
 
-  await env.DB.prepare(
-    `INSERT INTO performers (id, venue_slug, night, name, act, songs, phone, needs,
-      position, status, created_at, label_optin, contact_email)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?)`,
-  )
-    .bind(
-      id,
-      venue.slug,
-      night,
-      name,
-      clean(form.get('act'), 30),
-      clampInt(form.get('songs'), 1, venue.max_songs, 2),
-      clean(form.get('phone'), 20),
-      clean(form.get('needs'), 80),
-      position,
-      new Date().toISOString(),
-      optedIn,
-      optedIn ? clean(form.get('contact_email'), 90) : '',
+  // Capacity is enforced in the INSERT itself, not by the read above, so
+  // concurrent sign-ups cannot race past the limit. The unique index on
+  // (venue_slug, night, lower(name)) does the same job for duplicates.
+  try {
+    const res = await env.DB.prepare(
+      `INSERT INTO performers (id, venue_slug, night, name, act, songs, phone, needs,
+        position, status, created_at, label_optin, contact_email)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?
+        WHERE (SELECT COUNT(*) FROM performers WHERE venue_slug = ? AND night = ?) < ?`,
     )
-    .run();
+      .bind(
+        id,
+        venue.slug,
+        night,
+        name,
+        clean(form.get('act'), 30),
+        clampInt(form.get('songs'), 1, venue.max_songs, 2),
+        clean(form.get('phone'), 20),
+        clean(form.get('needs'), 80),
+        position,
+        new Date().toISOString(),
+        optedIn,
+        optedIn ? clean(form.get('contact_email'), 90) : '',
+        venue.slug,
+        night,
+        venue.capacity,
+      )
+      .run();
+
+    if (!res.meta || res.meta.changes === 0) {
+      return html(
+        signupPage(venue, await getPerformers(env, venue.slug, night), {
+          error: "Tonight's list filled up while you were typing. Ask the host.",
+        }),
+      );
+    }
+  } catch (err) {
+    // The unique index fired: someone with this name is already on tonight.
+    if (String(err).includes('UNIQUE')) {
+      return html(
+        signupPage(venue, await getPerformers(env, venue.slug, night), {
+          error: `"${name}" is already on the list. Talk to the host if that's not you.`,
+        }),
+      );
+    }
+    throw err;
+  }
 
   const body = signupPage(venue, await getPerformers(env, venue.slug, night), {
     joined: position,
@@ -248,6 +317,30 @@ async function handleHostAction(request, env, venue) {
     return redirect(base);
   }
 
+  // The host link is a bearer credential that lives in an address bar, gets
+  // bookmarked on a bar tablet and screenshotted into group chats. There has to
+  // be a way to kill it. This issues a new one and breaks every old copy.
+  if (action === 'rotate_link') {
+    const fresh = newToken();
+    await env.DB.prepare('UPDATE venues SET host_token = ? WHERE slug = ?')
+      .bind(fresh, venue.slug)
+      .run();
+    return redirect(`/${venue.slug}/host/${fresh}?rotated=1`);
+  }
+
+  // Scrub tonight's contact details on demand. The sign-up form promises the
+  // phone number is for tonight's running order, so the host can honour that
+  // without waiting for the scheduled purge.
+  if (action === 'purge_contacts') {
+    await env.DB.prepare(
+      `UPDATE performers SET phone = '', contact_purged_at = ?
+        WHERE venue_slug = ? AND night = ?`,
+    )
+      .bind(new Date().toISOString(), venue.slug, night)
+      .run();
+    return redirect(base);
+  }
+
   if (action === 'add') {
     const name = clean(form.get('name'), 60);
     if (!name) return redirect(base);
@@ -327,10 +420,22 @@ async function handleHostAction(request, env, venue) {
   return redirect(base);
 }
 
+// Compare in time that does not depend on how many characters matched. The
+// timing channel here is nanoseconds against network jitter, so nobody was ever
+// going to use it, but it costs four lines to remove the question entirely.
+function timingSafeEqual(a, b) {
+  const x = new TextEncoder().encode(String(a));
+  const y = new TextEncoder().encode(String(b));
+  let diff = x.length ^ y.length;
+  const n = Math.max(x.length, y.length);
+  for (let i = 0; i < n; i++) diff |= (x[i] || 0) ^ (y[i] || 0);
+  return diff === 0;
+}
+
 async function handleAdminCreate(request, env, origin) {
   const form = await request.formData();
   const key = clean(form.get('key'), 100);
-  if (!env.ADMIN_KEY || key !== env.ADMIN_KEY) {
+  if (!env.ADMIN_KEY || !timingSafeEqual(key, env.ADMIN_KEY)) {
     return html(errorPage('Nope.', 403), 403);
   }
   const name = clean(form.get('name'), 80);
@@ -405,6 +510,15 @@ export default {
     const origin = url.origin;
     const parts = url.pathname.split('/').filter(Boolean);
     const method = request.method;
+
+    // Reject oversized bodies before parsing. Every form on this site is a few
+    // hundred bytes; 100MB was being accepted and parsed before truncation.
+    if (method === 'POST') {
+      const len = parseInt(request.headers.get('content-length') || '0', 10);
+      if (len > 16 * 1024) {
+        return html(errorPage('That request was too large.', 413), 413);
+      }
+    }
 
     try {
       if (parts.length === 0) return html(landingPage());
@@ -521,6 +635,46 @@ export default {
         }),
       );
       return html(errorPage('Something broke. Try again.', 500), 500);
+    }
+  },
+
+  // Retention. The sign-up form tells people their phone number is for
+  // tonight's running order and that they can have it deleted. Nothing was
+  // enforcing either promise: numbers were kept indefinitely, so one leaked
+  // host link exposed a venue's entire history rather than a single night.
+  //
+  // Runs daily. Scrubs phone numbers and any stored contact email from nights
+  // older than the retention window, and clears the throttle table.
+  async scheduled(event, env, ctx) {
+    const RETAIN_NIGHTS = 14;
+    const cutoff = melbourneNight(
+      new Date(Date.now() - RETAIN_NIGHTS * 86400 * 1000),
+    );
+    const stamp = new Date().toISOString();
+    try {
+      const scrubbed = await env.DB.prepare(
+        `UPDATE performers SET phone = '', contact_email = '', contact_purged_at = ?
+          WHERE night < ? AND contact_purged_at IS NULL`,
+      )
+        .bind(stamp, cutoff)
+        .run();
+      const hits = await env.DB.prepare(
+        'DELETE FROM signup_hits WHERE created_at < ?',
+      )
+        .bind(new Date(Date.now() - 86400 * 1000).toISOString())
+        .run();
+      console.log(
+        JSON.stringify({
+          msg: 'retention',
+          cutoff,
+          performers_scrubbed: scrubbed.meta ? scrubbed.meta.changes : null,
+          throttle_rows_cleared: hits.meta ? hits.meta.changes : null,
+        }),
+      );
+    } catch (err) {
+      console.error(
+        JSON.stringify({ msg: 'retention_failed', error: String(err) }),
+      );
     }
   },
 };
