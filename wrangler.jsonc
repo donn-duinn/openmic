@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "openmic",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "openmic",
+      "database_id": "c2206573-d514-4324-95e6-dcd29e5b47ae"
+    }
+  ]
+  // ADMIN_KEY is a secret: wrangler secret put ADMIN_KEY
+}
