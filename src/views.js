@@ -264,7 +264,8 @@ ${
 ${creditsBlock(opts.crew)}
 ${ACKNOWLEDGEMENT}
 <div class="card rights"><h3>Owed money you have never claimed?</h3>
-<p>Every pub that hosts live music pays a licence fee, and APRA pays it out to
+<p>Every venue that hosts live music is required by law to hold a music licence,
+and APRA pays that money out to
 whoever files a performance report. Most people at this level never do.</p>
 <p><a class="inline" href="/apra">Sort your performance reports out</a> — free,
 nothing leaves your phone.</p></div>
@@ -363,18 +364,19 @@ target="_blank" rel="noopener">Musicians Australia minimum fee &rarr;</a></p>
 </div>
 
 <div class="card" id="apra">
-<h2 style="margin-top:0">Money you are probably already owed</h2>
-<p>Every pub that hosts live music pays a licence fee. That money goes into a
+<h2 style="margin-top:0">Money you may already be owed</h2>
+<p>Every venue that hosts live music is required by law to hold a music licence.
+That money goes into a
 pool that APRA AMCOS pays out <b>to the people who file a performance report</b>
 saying what they played, where and when.</p>
 <p>If you do not file, you do not get paid. The money still goes out. It just
 goes to whoever did the paperwork.</p>
 <p><b>To claim it you need:</b></p>
 <ul>
-<li>To have played <b>your own songs</b>. Covers do not count, the royalty for
-those belongs to whoever wrote them.</li>
-<li>To be an APRA writer member. Check their site for what that currently
-costs.</li>
+<li>To have played <b>your own songs</b>. You are not paid for covers, but APRA
+still want them listed so the writer gets paid.</li>
+<li>To be an APRA writer member. It is free to join, with no fee, and you
+qualify if you write your own songs and they get performed live.</li>
 <li>To submit a performance report listing your songs, the venue and the
 date.</li>
 </ul>
@@ -717,15 +719,16 @@ export function apraPage() {
     `<div class="wrap">
 <header>
 <h1>Performance reports, without the paperwork dread</h1>
-<p class="sub">Every pub that hosts live music pays a licence fee. APRA AMCOS
+<p class="sub">Every venue that hosts live music is required by law to hold a music
+licence. APRA AMCOS
 pays that money out to whoever files a performance report. If you don't file,
 it goes to the people who did.</p>
 </header>
 
 <div class="card rights">
 <h3>Read this first, it is short</h3>
-<p>You earn royalties when your <b>own songs</b> are played live at a pub, club,
-café or open mic night. APRA say that in those words.</p>
+<p>You earn royalties when you play your <b>own songs</b> live at a pub, club,
+café or open mic night. That is APRA's own example, near enough word for word.</p>
 <p><b>Put your covers on the report too.</b> You don't get paid for them, but the
 person who wrote the song does, and they are in the same position you are.</p>
 <p>You need to be an APRA AMCOS <b>writer member</b> to file and be paid. You
@@ -733,6 +736,18 @@ submit it yourself, in their app or Writer Portal. This page just gets your
 setlists into a shape you can type in without wanting to give up.</p>
 <p class="muted">We never see any of this, we never submit on your behalf, and
 we never touch the money.</p>
+</div>
+
+<div class="card">
+<p><b>Two things to do before you file, or a correct report pays you nothing.</b></p>
+<p><b>Register your songs</b> in the Writer Portal. Reports are matched against
+APRA's registration database, so an unregistered original earns you nothing no
+matter how well you filed it.</p>
+<p><b>Put your bank details in.</b> APRA pay out from $1 once they have your EFT
+details, and hold anything under $10 if they don't.</p>
+<p class="muted">Room size does not change what you earn. In APRA's words, your
+royalties "will be the same if you are playing at a corner pub or a
+500-capacity room". Small rooms are worth filing.</p>
 </div>
 
 <h2>Add a gig</h2>
@@ -744,7 +759,7 @@ we never touch the money.</p>
 <input id="g_venue" maxlength="80" required placeholder="e.g. The Old Bar">
 <label for="g_suburb">Suburb or town</label>
 <input id="g_suburb" maxlength="60" placeholder="e.g. Fitzroy">
-<label for="g_time">Set start time <span class="muted">— APRA ask for it</span></label>
+<label for="g_time">Set start time <span class="muted">— APRA require it</span></label>
 <input id="g_time" type="time">
 <label for="g_songs">Songs you played, one per line</label>
 <textarea id="g_songs" rows="6" placeholder="Put a * at the start of a line if it was a cover
@@ -822,11 +837,18 @@ target="_blank" rel="noopener">APRA AMCOS Writer Portal</a> ·
 <a class="inline" href="https://www.apraamcos.com.au/resources/get-paid/performance-reports"
 target="_blank" rel="noopener">their guide</a> ·
 not a member yet? <a class="inline"
-href="https://www.apraamcos.com.au/member-services/join" target="_blank"
-rel="noopener">joining details</a></p>
+href="https://www.apraamcos.com.au/music-creators/join-as-a-writer" target="_blank"
+rel="noopener">joining is free</a></p>
 </div>
 
 ${ACKNOWLEDGEMENT}
+
+<p class="notice-small">Every rule on this page is taken from APRA AMCOS's own
+Performance Reports guide, last checked 29 July 2026. If it has changed since,
+their page wins, not this one.
+<a class="inline" href="https://www.apraamcos.com.au/resources/get-paid/performance-reports"
+target="_blank" rel="noopener">Check it</a>. This is a formatter and a summary,
+not advice, and nobody here is your accountant.</p>
 
 <div class="foot">Free, forever, from <a href="/">Tech&nbsp;Duinn</a> ·
 <a href="/rights">know your rights</a> · built by a Melbourne musician who was

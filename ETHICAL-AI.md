@@ -65,9 +65,31 @@ verifiable in the public source code:
    It did not decide who gets credited, what gets published, or what the thing is
    for.
 
-**That list is the policy proposal.** Those six constraints cost nothing, are
-verifiable in source, and would improve most publicly funded software regardless
-of whether AI touched it.
+**That list is the policy proposal.** Those constraints cost nothing and would
+improve most publicly funded software regardless of whether AI touched it.
+
+**Four gaps, added after review, because the original six were not enough.**
+All six above are *data* constraints. A civic tool can honour every one of them
+and still fail the people using it. Missing:
+
+7. **A redress route.** If the system gets something wrong about a person, there
+   must be a stated way to have it corrected, and a name to write to. A
+   reputational record with no appeals process is not made acceptable by being
+   consent-gated.
+8. **A succession duty.** Abandonment, not enclosure, is how civic software
+   usually dies. Whoever runs it should say in advance what happens to the data
+   and the service if they stop.
+9. **Breach disclosure.** Stated up front, not decided during.
+10. **Data export.** A person can take their own records out in a usable format
+    at any time, without asking.
+
+**And one honest problem with the original list.** Constraint six, that a human
+made every judgement call, is the only one that cannot be checked in the source.
+It is an assertion, which fails this document's own test. The precise version is
+narrower: the human made every judgement he *noticed*. The model chose schema
+shapes, defaults and wording, and defaults are ethics. Five checkable
+constraints and one claim is a weaker proposal than six checkable ones, and it
+should be presented that way.
 
 ---
 
@@ -78,10 +100,15 @@ person with no formal training in software or AI. That is the point, and it
 should be stated plainly in any submission.
 
 **Self-taught is the argument, not a caveat.** The policy question is who gets
-to hold this technology. If a musician with no degree can build working civic
-infrastructure in a night, then the barrier to useful public-interest software
-has collapsed — and the people best placed to build it are the ones standing in
-the problem, not the ones who win the tender.
+to hold this technology.
+
+**Stated precisely, because the loose version overclaims.** What collapsed is
+the barrier to a *first deployment*. Maintenance, liability, support and
+institutional cost are entirely untouched, and those are what actually kill
+civic software. The genuinely novel finding here is smaller and better than
+"anyone can build anything now": proximity to the problem produced the
+constraint list. Standing in the room is what generated the six rules. The code
+was the cheap part.
 
 It is also worth stating what AI did *not* do. It did not have the idea. It did
 not know that fifty performers on an email link was a problem worth solving,

@@ -1220,6 +1220,19 @@ specific night, and the fact that the people watching know a human is doing it
 in front of them. That is not a feature gap that closes with a bigger model. It
 is what the thing is.
 
+**Corrected after review, and the correction matters.** That claim is true
+ontologically and load-bearing for nothing economically. Nothing obliges an
+audience to want presence. Pubs already substitute recorded music, DJs and
+poker machines for live bands, and synthetic performers sell out rooms
+elsewhere. Presence is a preference, not a moat, and a flood of cheap content
+is precisely the thing that moves preferences. The 83-cents-at-the-bar figure
+in section 5.1 proves it from the other side: the venue is buying atmosphere,
+not presence, and atmosphere has substitutes.
+
+**The defensible version, which is what this project actually built:** AI
+cannot supply the thing, the thing is already underpriced, so the useful
+intervention is at the payments layer rather than the production layer.
+
 Everything else in music is now reproducible at close to zero marginal cost.
 Live is the one part that is not.
 
