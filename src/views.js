@@ -118,6 +118,14 @@ function actLine(p, { forHost = false } = {}) {
   return bits.join(' · ');
 }
 
+// The handle is the one field a performer enters in order to be found. It is
+// public on purpose, on the running order and on the screen behind the bar.
+function igLink(p) {
+  if (!p.instagram) return '';
+  const h = esc(p.instagram);
+  return ` · <a class="inline" href="https://instagram.com/${h}" target="_blank" rel="noopener nofollow">@${h}</a>`;
+}
+
 // ---------- performer-facing sign-up page ----------
 
 export function signupPage(venue, performers, opts = {}) {
@@ -126,7 +134,7 @@ export function signupPage(venue, performers, opts = {}) {
   const listed = performers
     .map(
       (p) => `<li class="${esc(p.status)}"><span class="num"></span>
-<span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p))}</small></span>
+<span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p))}${igLink(p)}</small></span>
 ${
   p.status === 'onstage'
     ? '<span class="badge">On now</span>'
@@ -166,7 +174,12 @@ max="${venue.max_songs}" value="${Math.min(2, venue.max_songs)}">
 <label for="phone">Mobile <span class="muted">— so the host can text you when you're up</span></label>
 <input id="phone" name="phone" type="tel" maxlength="20" autocomplete="tel"
 placeholder="04...">
-<label for="needs">Anything you need?</label>
+<label for="instagram">Instagram <span class="muted">— optional, shown on the
+running order so people who liked your set can find you</span></label>
+<input id="instagram" name="instagram" maxlength="60" autocapitalize="none"
+autocorrect="off" spellcheck="false" placeholder="@yourhandle">
+<label for="needs">Anything you need? <span class="muted">— goes to the host
+only, not shown publicly</span></label>
 <input id="needs" name="needs" maxlength="80"
 placeholder="e.g. DI for acoustic, borrowing a guitar, need a stool">
 
@@ -419,6 +432,12 @@ export function stagePage(venue, performers) {
     `<div class="stage">
 <div class="lbl">${onstage ? 'On stage now' : 'Up next'}</div>
 <div class="now">${esc(onstage ? onstage.name : next ? next.name : 'Open mic')}</div>
+${(() => {
+  const who = onstage || next;
+  return who && who.instagram
+    ? `<div class="lbl" style="margin-top:.4em;opacity:.85">@${esc(who.instagram)}</div>`
+    : '';
+})()}
 ${
   onstage && next
     ? `<div class="next">Next up: <b>${esc(next.name)}</b></div>`
@@ -456,7 +475,7 @@ export function hostPage(venue, performers, origin, extra = {}) {
         )}"><input type="hidden" name="action" value="${action}">
 <button class="${cls}" type="submit">${label}</button></form>`;
       return `<li class="${esc(p.status)}"><span class="num"></span>
-<span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p, { forHost: true }))}${
+<span class="who"><b>${esc(p.name)}</b><small>${esc(actLine(p, { forHost: true }))}${igLink(p)}${
         p.phone ? ' · ' + esc(p.phone) : ''
       }</small></span>
 <span class="mini">

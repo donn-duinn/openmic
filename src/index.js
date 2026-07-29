@@ -6,6 +6,7 @@ import {
   cookieHeader,
   esc,
   html,
+  instagramHandle,
   json,
   melbourneNight,
   moneyAU,
@@ -106,8 +107,16 @@ async function getPerformers(env, slug, night) {
 // Per-IP sign-up throttle. The screen behind the bar shows performer names at
 // 6rem and refreshes every 15 seconds, so filling a list with junk is the worst
 // thing that can be done to a room without any vulnerability at all.
+// The threshold has to survive the thing that actually happens in a pub: fifty
+// people on the venue's wifi all sign up in the first ten minutes, sharing one
+// NAT address. To this code that is one visitor. A tight limit would lock the
+// room out of its own night, which is far worse than the abuse it prevents.
+//
+// So: loose enough that a real rush never trips it, tight enough that a script
+// cannot fill the screen behind the bar. The proven attack was 200 sign-ups in
+// 1.26 seconds. This caps that at 40 and stops the rest.
 const SIGNUP_WINDOW_SECONDS = 120;
-const SIGNUP_MAX_PER_WINDOW = 4;
+const SIGNUP_MAX_PER_WINDOW = 40;
 
 async function hashIp(request, night) {
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
@@ -193,8 +202,8 @@ async function handleJoin(request, env, venue) {
   try {
     const res = await env.DB.prepare(
       `INSERT INTO performers (id, venue_slug, night, name, act, songs, phone, needs,
-        position, status, created_at, label_optin, contact_email)
-       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?
+        instagram, position, status, created_at, label_optin, contact_email)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?, ?, ?
         WHERE (SELECT COUNT(*) FROM performers WHERE venue_slug = ? AND night = ?) < ?`,
     )
       .bind(
@@ -206,6 +215,7 @@ async function handleJoin(request, env, venue) {
         clampInt(form.get('songs'), 1, venue.max_songs, 2),
         clean(form.get('phone'), 20),
         clean(form.get('needs'), 80),
+        instagramHandle(form.get('instagram')),
         position,
         new Date().toISOString(),
         optedIn,

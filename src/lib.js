@@ -46,6 +46,21 @@ export function newToken() {
     .replace(/=+$/, '');
 }
 
+// Accepts anything a person might type in a pub: "@name", "name",
+// "instagram.com/name", "https://www.instagram.com/name/?hl=en". Returns a bare
+// handle, or '' if there is nothing usable. Instagram handles are letters,
+// numbers, full stops and underscores, up to 30 characters.
+export function instagramHandle(v) {
+  let s = String(v ?? '').trim();
+  if (!s) return '';
+  s = s.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+  s = s.replace(/^instagram\.com\//i, '');
+  s = s.split(/[/?#]/)[0];
+  s = s.replace(/^@+/, '');
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(s)) return '';
+  return s;
+}
+
 export function slugify(s) {
   return String(s)
     .toLowerCase()
