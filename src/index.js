@@ -23,6 +23,11 @@ import {
   landingPage,
   posterPage,
   rightsPage,
+  qrEditPage,
+  qrInfoPage,
+  qrLandingPage,
+  qrMadePage,
+  qrPosterPage,
   signupPage,
   stagePage,
 } from './views.js';
@@ -371,6 +376,65 @@ const APRA_JS = `(function () {
   render();
 })();`;
 
+// ---------- dynamic QR codes ----------
+
+// Short, unambiguous, and no vowels, so it cannot spell anything unfortunate on
+// a poster in a pub.
+const CODE_ALPHABET = '23456789bcdfghjkmnpqrstvwxz';
+
+function newCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(7));
+  return [...bytes].map((b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+}
+
+// An open redirector is useful to a phisher, so only ever http and https, never
+// javascript:, data:, or anything else a browser will happily execute.
+function safeTarget(v) {
+  const raw = String(v || '').trim();
+  if (!raw) return '';
+  let u;
+  try {
+    u = new URL(raw);
+  } catch (e) {
+    return '';
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+  if (u.href.length > 2000) return '';
+  return u.href;
+}
+
+function qrSvg(text) {
+  return new QRCode({
+    content: text,
+    padding: 1,
+    width: 260,
+    height: 260,
+    color: '#000000',
+    background: '#ffffff',
+    ecl: 'M',
+  })
+    .svg()
+    .replace('<svg', '<svg class="qr"');
+}
+
+const QR_WINDOW_SECONDS = 3600;
+const QR_MAX_PER_WINDOW = 20;
+
+async function qrThrottled(env, request) {
+  const ipHash = await hashIp(request, 'qr');
+  const since = new Date(Date.now() - QR_WINDOW_SECONDS * 1000).toISOString();
+  const row = await env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM qr_hits WHERE ip_hash = ? AND created_at > ?',
+  )
+    .bind(ipHash, since)
+    .first();
+  if ((row?.n || 0) >= QR_MAX_PER_WINDOW) return true;
+  await env.DB.prepare('INSERT INTO qr_hits (ip_hash, created_at) VALUES (?, ?)')
+    .bind(ipHash, new Date().toISOString())
+    .run();
+  return false;
+}
+
 // Which performer is this phone? Set on sign-up, scoped to the venue path.
 function meCookieName(slug) {
   return `om_${slug.replace(/[^a-z0-9]/g, '')}`;
@@ -390,6 +454,8 @@ const RESERVED = new Set([
   'admin',
   'api',
   'apra',
+  'q',
+  'qr',
   'favicon.ico',
   'robots.txt',
   'rights',
@@ -970,6 +1036,117 @@ export default {
         return new Response('User-agent: *\nDisallow: /\n', {
           headers: { 'content-type': 'text/plain' },
         });
+      }
+
+      // ---------- dynamic QR ----------
+
+      // /q/:code — the redirect the printed poster points at
+      if (parts[0] === 'q' && parts[1]) {
+        if (parts[2] === 'info') {
+          const row = await env.DB.prepare('SELECT * FROM qr_codes WHERE code = ?')
+            .bind(parts[1])
+            .first();
+          if (!row) return html(errorPage('No such code.'), 404);
+          return html(qrInfoPage(origin, row));
+        }
+        const row = await env.DB.prepare(
+          'SELECT * FROM qr_codes WHERE code = ? AND disabled = 0',
+        )
+          .bind(parts[1])
+          .first();
+        if (!row) return html(errorPage('That code is not active.'), 404);
+        // Count the scan, record nothing about the person scanning.
+        ctx.waitUntil(
+          env.DB.prepare('UPDATE qr_codes SET scans = scans + 1 WHERE code = ?')
+            .bind(row.code)
+            .run(),
+        );
+        return new Response(null, {
+          status: 302,
+          headers: { location: row.target, 'cache-control': 'no-store' },
+        });
+      }
+
+      if (parts[0] === 'qr') {
+        if (!parts[1]) return html(qrLandingPage());
+
+        // /qr/new
+        if (parts[1] === 'new' && method === 'POST') {
+          if (await qrThrottled(env, request)) {
+            return html(
+              qrLandingPage({
+                error: 'That is a lot of codes from one connection. Try again in an hour.',
+              }),
+              429,
+            );
+          }
+          const form = await request.formData();
+          const target = safeTarget(form.get('target'));
+          if (!target) {
+            return html(
+              qrLandingPage({
+                error: 'That needs to be a full web address starting with http:// or https://',
+              }),
+              400,
+            );
+          }
+          const row = {
+            code: newCode(),
+            target,
+            label: clean(form.get('label'), 60),
+            edit_token: newToken(),
+          };
+          const now = new Date().toISOString();
+          await env.DB.prepare(
+            `INSERT INTO qr_codes (code, target, label, edit_token, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+          )
+            .bind(row.code, row.target, row.label, row.edit_token, now, now)
+            .run();
+          return html(qrMadePage(origin, row, qrSvg(`${origin}/q/${row.code}`)));
+        }
+
+        const code = parts[1];
+        const row = await env.DB.prepare('SELECT * FROM qr_codes WHERE code = ?')
+          .bind(code)
+          .first();
+        if (!row) return html(errorPage('No such code.'), 404);
+
+        // /qr/:code/poster
+        if (parts[2] === 'poster') {
+          return html(qrPosterPage(origin, row, qrSvg(`${origin}/q/${row.code}`)));
+        }
+
+        // /qr/:code/edit/:token — the token is the password, same as a host link
+        if (parts[2] === 'edit' && parts[3] === row.edit_token) {
+          if (method === 'POST') {
+            const form = await request.formData();
+            const action = clean(form.get('action'), 20);
+            if (action === 'disable') {
+              await env.DB.prepare(
+                'UPDATE qr_codes SET disabled = ?, updated_at = ? WHERE code = ?',
+              )
+                .bind(row.disabled ? 0 : 1, new Date().toISOString(), row.code)
+                .run();
+            } else {
+              const target = safeTarget(form.get('target'));
+              if (!target) return html(errorPage('That address did not look right.', 400), 400);
+              await env.DB.prepare(
+                'UPDATE qr_codes SET target = ?, label = ?, updated_at = ? WHERE code = ?',
+              )
+                .bind(target, clean(form.get('label'), 60), new Date().toISOString(), row.code)
+                .run();
+            }
+            return redirect(`/qr/${row.code}/edit/${row.edit_token}?saved=1`);
+          }
+          return html(
+            qrEditPage(origin, row, qrSvg(`${origin}/q/${row.code}`), {
+              saved: url.searchParams.get('saved') === '1',
+            }),
+          );
+        }
+
+        return html(errorPage('Not found.'), 404);
       }
 
       if (parts[0] === 'rights') return html(rightsPage());

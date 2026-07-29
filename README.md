@@ -23,7 +23,7 @@ it, or copy the model for your own city.
 **Want to help, or run your own?** [`HELP.md`](HELP.md). The goal is that this
 way of running a night becomes normal, not that this copy of it wins.
 
-## Two tools, one repo
+## Three tools, one repo
 
 **The sign-up system** for venues, below. And **[`/apra`](https://openmic.techduinn.dpdns.org/apra)**,
 a standalone performance report helper any musician can use tonight with no
@@ -31,6 +31,12 @@ venue, no account and no sign-up sheet: enter the gigs you have already played,
 get a setlist in a shape you can file, and find out what you cannot claim before
 you waste a submission. It runs entirely in the browser. No setlist reaches the
 server.
+
+And **[`/qr`](https://openmic.techduinn.dpdns.org/qr)**, dynamic QR codes.
+Print once, change where it points whenever you like, no subscription and no
+account. Services charge monthly for this, and when you stop paying, every
+poster you already printed stops working. Scans are counted; nothing about the
+person scanning is recorded.
 
 ## Pages
 

@@ -858,6 +858,169 @@ sick of watching people leave money on the table</div>
   );
 }
 
+// ---------- dynamic QR codes ----------
+
+export function qrLandingPage(opts = {}) {
+  return layout(
+    'A QR code you can point somewhere else later',
+    `<div class="wrap">
+<header>
+<h1>QR codes that don't expire</h1>
+<p class="sub">Print it once. Change where it goes whenever you like. Nobody
+charges you a monthly fee to keep your own poster working.</p>
+</header>
+
+${opts.error ? `<div class="notice bad">${esc(opts.error)}</div>` : ''}
+
+<div class="card">
+<p>Most services will sell you this as a subscription. The whole product is one
+row in a database and a redirect. The reason it costs money is that when you
+stop paying, every poster you already printed stops working.</p>
+<p class="muted">This one is free, has no account, and if it ever disappears the
+code is open source and you can run your own.</p>
+</div>
+
+<h2>Make one</h2>
+<div class="card">
+<form method="post" action="/qr/new">
+<label for="target">Where should it go?</label>
+<input id="target" name="target" type="url" required placeholder="https://..."
+autocapitalize="none" autocorrect="off">
+<label for="label">What is it for? <span class="muted">— just so you recognise
+it later</span></label>
+<input id="label" name="label" maxlength="60" placeholder="e.g. Tuesday poster, back bar">
+<button type="submit">Make my QR code</button>
+</form>
+<p class="notice-small">You will get the code, a printable poster, and one
+private link for changing where it points. That link is the only way back in,
+so keep it. There is no account to recover.</p>
+</div>
+
+<div class="card">
+<p class="muted">What is recorded: how many times it has been scanned. What is
+not: who scanned it, from where, on what, or when. No cookie, no IP, no log.</p>
+</div>
+
+${ACKNOWLEDGEMENT}
+<div class="foot">Free, forever, from <a href="/">Tech&nbsp;Duinn</a></div>
+</div>`,
+  );
+}
+
+export function qrMadePage(origin, row, qrSvg) {
+  const short = `${origin}/q/${row.code}`;
+  const edit = `${origin}/qr/${row.code}/edit/${row.edit_token}`;
+  return layout(
+    'Your QR code',
+    `<div class="wrap">
+<header><h1>Done. Print it.</h1></header>
+
+<div class="card" style="text-align:center">${qrSvg}
+<p style="margin-top:12px"><b>${esc(short)}</b></p></div>
+
+<div class="card rights">
+<h3>Save this link now</h3>
+<p>This is the only way to change where the code points, and there is no account
+to recover it from:</p>
+<p><a class="inline" href="${esc(edit)}">${esc(edit)}</a></p>
+<p class="muted">Bookmark it, email it to yourself, whatever you will still have
+in a year. Anyone with it can change where your poster sends people.</p>
+</div>
+
+<div class="card">
+<a class="btn ghost" href="/qr/${esc(row.code)}/poster">Printable poster</a>
+<a class="btn ghost" href="${esc(edit)}">Change where it goes</a>
+</div>
+
+<div class="foot"><a href="/qr">Make another</a> · <a href="/">Tech&nbsp;Duinn</a></div>
+</div>`,
+    { ui: true },
+  );
+}
+
+export function qrEditPage(origin, row, qrSvg, opts = {}) {
+  const short = `${origin}/q/${row.code}`;
+  return layout(
+    `Editing ${row.label || row.code}`,
+    `<div class="wrap">
+<header><h1>${esc(row.label || 'Your QR code')}</h1>
+<p class="sub">${esc(short)} · scanned ${row.scans} time${row.scans === 1 ? '' : 's'}</p>
+</header>
+
+${opts.saved ? '<div class="notice ok">Changed. Every printed copy now points at the new address.</div>' : ''}
+
+<div class="card" style="text-align:center">${qrSvg}</div>
+
+<div class="card">
+<form method="post">
+<input type="hidden" name="action" value="retarget">
+<label for="target">Send people to</label>
+<input id="target" name="target" type="url" required value="${esc(row.target)}"
+autocapitalize="none" autocorrect="off">
+<label for="label">Label</label>
+<input id="label" name="label" maxlength="60" value="${esc(row.label || '')}">
+<button type="submit">Save</button>
+</form>
+</div>
+
+<div class="card">
+<a class="btn ghost" href="/qr/${esc(row.code)}/poster">Printable poster</a>
+</div>
+
+<div class="card">
+<p class="muted">Scans are counted and nothing else. No IP address, no device,
+no time of day, no cookie. The number above is the entire record.</p>
+<form method="post" data-confirm="Turn this code off? Every printed copy stops working.">
+<input type="hidden" name="action" value="disable">
+<button class="btn ghost" type="submit">${
+      row.disabled ? 'Turn it back on' : 'Turn this code off'
+    }</button>
+</form>
+</div>
+
+<div class="foot">Keep this link. It is the only way back in.</div>
+</div>`,
+    { ui: true },
+  );
+}
+
+export function qrPosterPage(origin, row, qrSvg) {
+  return layout(
+    `Poster — ${row.label || row.code}`,
+    `<div class="wrap">
+<div class="card" style="text-align:center">
+${qrSvg}
+<h1 style="margin-top:16px">${esc(row.label || 'Scan me')}</h1>
+<p class="muted">${esc(origin)}/q/${esc(row.code)}</p>
+</div>
+<button class="noprint" data-print="1">Print this</button>
+<div class="foot noprint"><a href="/qr">Make another</a></div>
+</div>`,
+    { ui: true },
+  );
+}
+
+export function qrInfoPage(origin, row) {
+  return layout(
+    'Where does this go?',
+    `<div class="wrap">
+<header><h1>Where this code points</h1></header>
+<div class="card">
+<p class="muted">Short link</p><p><b>${esc(origin)}/q/${esc(row.code)}</b></p>
+<p class="muted" style="margin-top:16px">Sends you to</p>
+<p style="word-break:break-all"><b>${esc(row.target)}</b></p>
+</div>
+<div class="card">
+<p class="muted">Anyone can check where one of these codes goes before scanning
+it, which is the point of this page. If a code here is being used to trick
+people, tell me and I will switch it off:
+<a class="inline" href="mailto:daniel.j.hogben@gmail.com?subject=QR%20abuse%20report%20${esc(row.code)}">report it</a>.</p>
+</div>
+<div class="foot"><a href="/">Tech&nbsp;Duinn</a></div>
+</div>`,
+  );
+}
+
 // ---------- landing page (the pitch) ----------
 
 export function landingPage() {
