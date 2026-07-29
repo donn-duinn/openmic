@@ -336,12 +336,18 @@ the report, not the performer. For nights this project runs, that means filing o
 behalf of everyone who played, which is a far better version of the feature than
 asking individuals to file.
 
-**Honest caveats, which must stay on screen and not be buried:** originals only,
-because a cover earns the songwriter and not the performer, and most open mic
-sets are covers. APRA writer membership is required to submit and be paid.
-Current joining requirements and fees must be verified before this is described
-as free to anyone. We generate the report, the artist submits it, we never touch
-the money.
+**Corrected 2026-07-29, from APRA's own guidance.** Covers belong on the report
+as well: the performer is not paid for them, the writer is, and omitting them
+denies another songwriter the same money this project argues for. And the
+promoter-files rule is narrow, covering *Promoted Events* such as major
+festivals and international tours, not a pub open mic, so each performer files
+their own. APRA writer membership is required to submit and be paid. Claims run
+one year back as standard, three with evidence. Busking is excluded from 1 July
+2026. We generate the report, the artist submits it, we never touch the money.
+
+**Built and live at [`/apra`](https://openmic.techduinn.dpdns.org/apra)**, as a
+standalone tool that needs no venue and no sign-up sheet. It runs entirely in
+the browser, so no setlist ever reaches this server.
 
 ### 6.3 Crew credits with pay tracking
 

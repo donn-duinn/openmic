@@ -263,6 +263,12 @@ ${
 <p class="muted" style="margin-top:14px">Updated ${esc(melbourneTime())} · refresh for the latest</p>
 ${creditsBlock(opts.crew)}
 ${ACKNOWLEDGEMENT}
+<div class="card rights"><h3>Owed money you have never claimed?</h3>
+<p>Every pub that hosts live music pays a licence fee, and APRA pays it out to
+whoever files a performance report. Most people at this level never do.</p>
+<p><a class="inline" href="/apra">Sort your performance reports out</a> — free,
+nothing leaves your phone.</p></div>
+
 <div class="foot">Free sign-up sheet for ${esc(venue.name)}<br>built by
 <a href="/">Tech&nbsp;Duinn</a> &middot; <a href="/rights">your rights</a></div>
 </div>`,
@@ -696,6 +702,117 @@ on your phone.</p>
 <div class="foot noprint">Stick it on the bar and next to the stage.</div>
 </div>`,
     { ui: true },
+  );
+}
+
+// ---------- APRA performance report helper ----------
+
+// Standalone on purpose. It needs no venue, no account and no sign-up sheet:
+// any musician can use it tonight for gigs they have already played. Everything
+// stays in the browser's own storage. Nothing is sent to this server, because
+// there is no reason for us to hold a person's setlist history.
+export function apraPage() {
+  return layout(
+    'Get paid for the gigs you already played',
+    `<div class="wrap">
+<header>
+<h1>Performance reports, without the paperwork dread</h1>
+<p class="sub">Every pub that hosts live music pays a licence fee. APRA AMCOS
+pays that money out to whoever files a performance report. If you don't file,
+it goes to the people who did.</p>
+</header>
+
+<div class="card rights">
+<h3>Read this first, it is short</h3>
+<p>You earn royalties when your <b>own songs</b> are played live at a pub, club,
+café or open mic night. APRA say that in those words.</p>
+<p><b>Put your covers on the report too.</b> You don't get paid for them, but the
+person who wrote the song does, and they are in the same position you are.</p>
+<p>You need to be an APRA AMCOS <b>writer member</b> to file and be paid. You
+submit it yourself, in their app or Writer Portal. This page just gets your
+setlists into a shape you can type in without wanting to give up.</p>
+<p class="muted">We never see any of this, we never submit on your behalf, and
+we never touch the money.</p>
+</div>
+
+<h2>Add a gig</h2>
+<div class="card">
+<form id="gigform">
+<label for="g_date">Date you played</label>
+<input id="g_date" type="date" required>
+<label for="g_venue">Venue</label>
+<input id="g_venue" maxlength="80" required placeholder="e.g. The Old Bar">
+<label for="g_suburb">Suburb or town</label>
+<input id="g_suburb" maxlength="60" placeholder="e.g. Fitzroy">
+<label for="g_time">Set start time <span class="muted">— APRA ask for it</span></label>
+<input id="g_time" type="time">
+<label for="g_songs">Songs you played, one per line</label>
+<textarea id="g_songs" rows="6" placeholder="Put a * at the start of a line if it was a cover
+My Song Title
+*Somebody Else's Song"></textarea>
+<p class="notice-small">A line starting with <b>*</b> is treated as a cover:
+still reported, credited to whoever wrote it, not paid to you.</p>
+<button type="submit">Save this gig</button>
+</form>
+</div>
+
+<div id="warnings"></div>
+
+<h2>Your gigs</h2>
+<div id="gigs"><p class="muted">Nothing saved yet. Add one above.</p></div>
+
+<div class="card noprint">
+<p class="muted">Everything here lives in this browser only. Clearing your
+browser data clears it. Export a copy if it matters.</p>
+<button class="btn ghost" id="export">Download as CSV</button>
+<button class="btn ghost" id="copy">Copy as text</button>
+<button class="btn ghost" id="print" data-print="1">Print</button>
+</div>
+
+<h2>What you cannot claim</h2>
+<div class="card">
+<p class="muted">Straight from APRA, so you don't waste a submission:</p>
+<ul class="muted">
+<li>Private functions. Weddings, private parties, nursing homes, hospitals,
+even when they are held in a public venue.</li>
+<li>Religious worship services.</li>
+<li>Performances broadcast on radio or television.</li>
+<li>Musicals, operas, ballets and anything performed in a dramatic context.</li>
+<li><b>Busking</b>, for performances on or after 1 July 2026.</li>
+</ul>
+<p class="muted">Festivals, international tours and other promoted events are
+licensed differently: the promoter collects setlists and submits for you. A
+normal pub or open mic night is not one of these, so file it yourself. APRA's
+own advice is that if you are in doubt and nobody has asked you for a setlist,
+submit the report.</p>
+</div>
+
+<div class="card">
+<p><b>Time limit.</b> You can normally claim up to one year back from the date
+you played. It can be extended to three years with evidence such as posters,
+tickets or a letter from the venue, but new members can only claim the twelve
+months before they joined.</p>
+<p class="muted">Royalties are paid quarterly, in February, May, August and
+November, and processing takes about six months from when you file.</p>
+</div>
+
+<div class="card">
+<p>Ready to file: <a class="inline" href="https://portals.apraamcos.com.au/"
+target="_blank" rel="noopener">APRA AMCOS Writer Portal</a> ·
+<a class="inline" href="https://www.apraamcos.com.au/resources/get-paid/performance-reports"
+target="_blank" rel="noopener">their guide</a> ·
+not a member yet? <a class="inline"
+href="https://www.apraamcos.com.au/member-services/join" target="_blank"
+rel="noopener">joining details</a></p>
+</div>
+
+${ACKNOWLEDGEMENT}
+
+<div class="foot">Free, forever, from <a href="/">Tech&nbsp;Duinn</a> ·
+<a href="/rights">know your rights</a> · built by a Melbourne musician who was
+sick of watching people leave money on the table</div>
+</div>`,
+    { ui: true, apra: true },
   );
 }
 

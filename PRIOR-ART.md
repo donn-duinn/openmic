@@ -62,17 +62,23 @@ soon" since 2020. Six years.
 The entire third-party competitive field is one GitHub repo with 2 commits and
 1 star, which states outright that it organises reporting but does not file it.
 
-**Important detail we did not know:** if a promoter organised the event, the
-promoter reports, not the performer. For donn's own promoted nights, that means
-he can file on behalf of everyone who played. That is a materially better
-version of the feature than performers filing individually.
+**Correction, 2026-07-29, from APRA's own page.** An earlier draft said that a
+promoter files for everyone at their event, and treated that as the best version
+of the feature. It applies far more narrowly than that: APRA's *Promoted Events*
+are major festivals, international tours and special events, which are licensed
+differently from ordinary venues. A pub open mic is a standard live performance,
+so each performer files their own report. Their advice where it is unclear is
+that if nobody has asked you for a setlist, submit one yourself.
 
-**Correction to earlier caution:** an adversarial review last night argued the
-APRA feature was near-worthless because open mic sets are mostly covers. Half
-right. Covers still earn the songwriter, not the performer, so the feature only
-serves originals players. But APRA naming open mics as eligible, plus the
-promoter-reports rule, makes it considerably more valuable than that review
-allowed.
+The feature is still worth building. It is just a tool for the performer, not a
+lever for the promoter.
+
+**On the "it's all covers" objection.** An adversarial review argued the feature
+was near-worthless because open mic sets are mostly covers. Partly right: you
+are only paid for your own songs. But APRA ask for covers on the report anyway,
+so the writer gets paid, and they name open mic nights as eligible in their own
+words. The feature serves originals players directly and every other songwriter
+in the room indirectly.
 
 ### 2. Crew credits with pay tracking at pub-gig scale
 
@@ -105,9 +111,9 @@ info about venues" drew 142 upvotes.
    is already zero.
 2. **Reorder the roadmap.** The APRA pipeline moves from "nice later feature"
    to the primary product. Capture song titles at sign-up, not after the set.
-3. **The promoter-reports rule changes the design.** For nights donn runs, he
-   files for everyone. Build that path first, it is easier and higher value
-   than getting individuals to file.
+3. **Build the performer's path, not the promoter's.** The promoter-files rule
+   turned out to cover festivals and tours, not pub nights, so there is no
+   shortcut through running the room. Corrected above.
 4. **The venue reputation graph has a proven overseas model.** Indie on the Move
    validates it commercially. It also sharpens the conflict problem the
    teardown raised, and is the strongest argument for the not-for-profit

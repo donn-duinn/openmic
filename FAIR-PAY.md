@@ -131,12 +131,33 @@ titles.
 ready-to-submit APRA performance report. One tap, and they claim money they
 were already owed and were never going to see.
 
-**Honest caveats, which must be on the screen, not buried:**
-- **Originals only.** If you played covers, the royalty goes to whoever wrote
-  the song, not to you. Most open mic sets are covers, so this will not apply to
-  everyone.
+**Corrected 2026-07-29, read directly from APRA's own performance reports page.**
+Two things we had wrong, and both matter:
+
+- **Covers go on the report too.** Earlier drafts here said "originals only".
+  APRA's wording is explicit: *"if you're playing any covers, you'll need to
+  include those on your Performance Report, as well."* You are not paid for a
+  cover, the writer is. Leaving covers off does not help you and quietly denies
+  another songwriter the same money we are arguing you should get.
+- **The promoter-files rule is much narrower than we claimed.** It applies to
+  *Promoted Events*, which APRA define as major festivals, international tours
+  and special events, licensed differently from standard venues. A pub open mic
+  is not one of those, so the performer files for themselves. Any plan built on
+  "the promoter files for everyone at my night" needs rewriting.
+
+**Other caveats, which must be on the screen, not buried:**
+- You are paid for **your own songs**. Covers still get reported, for the writer.
 - **You must be an APRA writer member** to submit a report and be paid. Check
   the current joining requirements and fee before we tell anyone it is free.
+- **Time limit.** One year from the date of the performance as standard, up to
+  three with evidence such as posters, tickets or a letter from the venue. New
+  members can only claim the twelve months before they joined.
+- **Not claimable at all:** private functions including weddings and parties
+  even in a public venue, worship services, anything broadcast on radio or TV,
+  musicals, operas, ballets and other dramatic contexts, and **busking for
+  performances on or after 1 July 2026**.
+- Royalties are paid quarterly in February, May, August and November, and
+  processing takes roughly six months from filing.
 - Songs not already in APRA's database can be registered at the same time the
   report is submitted.
 - We generate the report. The artist submits it. We never submit on someone's

@@ -17,6 +17,7 @@ import {
   slugify,
 } from './lib.js';
 import {
+  apraPage,
   errorPage,
   hostPage,
   landingPage,
@@ -155,6 +156,130 @@ const ORDER_JS = `(function () {
   window.addEventListener('online', tick);
 })();`;
 
+// Runs entirely in the browser. Setlists never reach this server, so there is
+// nothing here to leak, subpoena, sell or lose.
+const APRA_JS = `(function () {
+  var KEY = 'openmic.apra.gigs.v1';
+  var form = document.getElementById('gigform');
+  if (!form) return;
+  var out = document.getElementById('gigs');
+  var warn = document.getElementById('warnings');
+
+  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
+  function save(g) { localStorage.setItem(KEY, JSON.stringify(g)); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function parseSongs(text) {
+    return String(text || '').split('\\n').map(function (l) { return l.trim(); })
+      .filter(Boolean).map(function (l) {
+        var cover = l.charAt(0) === '*';
+        return { title: cover ? l.slice(1).trim() : l, cover: cover };
+      });
+  }
+  function daysAgo(d) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000); }
+
+  function claimNote(g) {
+    var age = daysAgo(g.date);
+    if (age > 1095) return { level: 'bad', text: 'Over three years ago. Outside the claim period.' };
+    if (age > 365) return { level: 'warn', text: 'Over a year ago. Claimable only with evidence such as a poster, ticket or a letter from the venue, and not at all if you joined APRA after this gig.' };
+    if (age < 0) return { level: 'warn', text: 'That date is in the future.' };
+    return null;
+  }
+
+  function render() {
+    var gigs = load().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    if (!gigs.length) {
+      out.innerHTML = '<p class="muted">Nothing saved yet. Add one above.</p>';
+      warn.innerHTML = '';
+      return;
+    }
+    var originals = 0, covers = 0, flagged = 0;
+    out.innerHTML = gigs.map(function (g, i) {
+      var note = claimNote(g);
+      if (note) flagged++;
+      originals += g.songs.filter(function (s) { return !s.cover; }).length;
+      covers += g.songs.filter(function (s) { return s.cover; }).length;
+      return '<div class="card"><b>' + esc(g.venue) + '</b>' +
+        (g.suburb ? ', ' + esc(g.suburb) : '') +
+        '<br><span class="muted">' + esc(g.date) + (g.time ? ' \\u00b7 ' + esc(g.time) : '') +
+        ' \\u00b7 ' + g.songs.length + ' songs</span>' +
+        (note ? '<div class="notice ' + (note.level === 'bad' ? 'bad' : 'warn') +
+                '" style="margin-top:10px">' + note.text + '</div>' : '') +
+        '<ol class="muted" style="margin:10px 0 0;padding-left:20px">' +
+        g.songs.map(function (s) {
+          return '<li>' + esc(s.title) + (s.cover ? ' <span class="muted">(cover, pays the writer)</span>' : '') + '</li>';
+        }).join('') + '</ol>' +
+        '<button class="btn ghost noprint" data-del="' + i + '" style="margin-top:12px">Delete this gig</button></div>';
+    }).join('');
+    warn.innerHTML = '<div class="card"><b>' + gigs.length + ' gigs</b> \\u00b7 ' +
+      originals + ' of your own songs \\u00b7 ' + covers + ' covers' +
+      (flagged ? ' \\u00b7 <span style="color:var(--warn)">' + flagged + ' need a closer look</span>' : '') +
+      '</div>';
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var songs = parseSongs(document.getElementById('g_songs').value);
+    if (!songs.length) { alert('Add at least one song.'); return; }
+    var gigs = load();
+    gigs.push({
+      date: document.getElementById('g_date').value,
+      venue: document.getElementById('g_venue').value.trim(),
+      suburb: document.getElementById('g_suburb').value.trim(),
+      time: document.getElementById('g_time').value,
+      songs: songs
+    });
+    save(gigs);
+    form.reset();
+    render();
+  });
+
+  document.addEventListener('click', function (e) {
+    var d = e.target && e.target.getAttribute && e.target.getAttribute('data-del');
+    if (d === null || d === undefined) return;
+    if (!confirm('Delete this gig?')) return;
+    var gigs = load().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    gigs.splice(Number(d), 1);
+    save(gigs);
+    render();
+  });
+
+  function rows() {
+    var r = [['Date', 'Set time', 'Venue', 'Suburb', 'Song', 'Cover']];
+    load().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (g) {
+      g.songs.forEach(function (s) {
+        r.push([g.date, g.time || '', g.venue, g.suburb || '', s.title, s.cover ? 'yes' : 'no']);
+      });
+    });
+    return r;
+  }
+
+  document.getElementById('export').addEventListener('click', function () {
+    var csv = rows().map(function (r) {
+      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = 'performance-reports.csv';
+    a.click();
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var text = load().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).map(function (g) {
+      return g.date + (g.time ? ' ' + g.time : '') + ' \\u2014 ' + g.venue +
+        (g.suburb ? ', ' + g.suburb : '') + '\\n' +
+        g.songs.map(function (s) { return '  ' + s.title + (s.cover ? ' (cover)' : ''); }).join('\\n');
+    }).join('\\n\\n');
+    if (navigator.clipboard) navigator.clipboard.writeText(text);
+    else window.prompt('Copy this', text);
+  });
+
+  render();
+})();`;
+
 // Which performer is this phone? Set on sign-up, scoped to the venue path.
 function meCookieName(slug) {
   return `om_${slug.replace(/[^a-z0-9]/g, '')}`;
@@ -173,6 +298,7 @@ async function getMe(request, env, venue, night) {
 const RESERVED = new Set([
   'admin',
   'api',
+  'apra',
   'favicon.ico',
   'robots.txt',
   'rights',
@@ -708,6 +834,16 @@ export default {
     try {
       if (parts.length === 0) return html(landingPage());
 
+      if (parts[0] === 'static' && parts[1] === 'apra.js') {
+        return new Response(APRA_JS, {
+          headers: {
+            'content-type': 'application/javascript; charset=utf-8',
+            'cache-control': 'public, max-age=300',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+
       if (parts[0] === 'static' && parts[1] === 'order.js') {
         return new Response(ORDER_JS, {
           headers: {
@@ -746,6 +882,7 @@ export default {
       }
 
       if (parts[0] === 'rights') return html(rightsPage());
+      if (parts[0] === 'apra') return html(apraPage());
 
       if (parts[0] === 'admin' && parts[1] === 'new') {
         if (method === 'POST') return await handleAdminCreate(request, env, origin);
