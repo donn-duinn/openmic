@@ -90,7 +90,7 @@ Short. Journalists get hundreds.
 >
 > Happy to show you, or to put you in touch with venues and performers using it.
 >
-> [NAME] · [PHONE] · [PROJECT URL]
+> [NAME] · [PHONE] · https://openmic.techduinn.dpdns.org
 
 ## Write it yourself, which is the one thing you can do now
 

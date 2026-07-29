@@ -172,18 +172,17 @@ Keep it to one page.
 > Musician · self-taught AI and software practitioner
 > Tech Duinn (sole trader) · ABN 69 173 867 628
 > [ADDRESS] · [PHONE] · daniel.j.hogben@gmail.com
-> [PROJECT URL] · source: [REPO URL]
+> https://openmic.techduinn.dpdns.org · source: https://github.com/donn-duinn/openmic
 
 ---
 
 ## 6. Before this goes anywhere
 
-- **Make the repo public first.** Every claim above rests on the source being
-  inspectable. A letter arguing for open, verifiable software that links to a
-  private repository is self-defeating. Check for anything sensitive before
-  flipping it: `TARGETS.md` is a prospect list, and the strategy documents should
-  probably move to a separate private repo.
-- **Custom domain.** Same reason as everywhere else.
+- **The repo is public.** Every claim above rests on the source being
+  inspectable, and it is, at https://github.com/donn-duinn/openmic. Keep
+  checking what goes into it: `TARGETS.md` is a prospect list, and the strategy
+  documents should probably move to a separate private repo.
+- **Custom domain. Done.** Letters link to https://openmic.techduinn.dpdns.org.
 - **One venue running first.** "I built this and it works" is a far weaker claim
   than "three Melbourne venues use it every week". Wait for the second version if
   you can bear to.

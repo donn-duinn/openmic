@@ -42,8 +42,23 @@ fi
 
 # --------------------------------------------------------------------- database
 say "Setting up the database"
-if grep -q '"database_id": *"[0-9a-f-]\{36\}"' wrangler.jsonc 2>/dev/null; then
-  warn "wrangler.jsonc already has a database_id. Leaving it alone."
+# The committed wrangler.jsonc carries the original author's database_id. That
+# database is not in YOUR account, so we check whether the configured id is one
+# you can actually reach. If it is not, you get your own.
+CONFIGURED_ID=$(grep -oE '"database_id": *"[0-9a-f-]{36}"' wrangler.jsonc 2>/dev/null \
+  | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
+YOURS=""
+if [ -n "$CONFIGURED_ID" ]; then
+  if $WRANGLER d1 info "$CONFIGURED_ID" >/dev/null 2>&1; then
+    YOURS="yes"
+  else
+    warn "The database_id in wrangler.jsonc belongs to someone else's account."
+    warn "Creating your own instead. This is expected on a fresh clone."
+  fi
+fi
+
+if [ -n "$YOURS" ]; then
+  warn "Using the D1 database already configured in wrangler.jsonc."
 else
   warn "Creating D1 database '$DB_NAME' (in APAC, so queries stay near your venues)."
   CREATE_OUT=$($WRANGLER d1 create "$DB_NAME" --location apac 2>&1 || true)

@@ -13,8 +13,9 @@ A bar running an open mic puts a QR code on the counter. Performers scan it,
 put their name in, and watch the running order on their own phone. The host
 gets one private link to reorder the list and mark who's on stage.
 
-Live: https://openmic.daniel-j-hogben.workers.dev
-Demo venue: https://openmic.daniel-j-hogben.workers.dev/demo
+Live: https://openmic.techduinn.dpdns.org
+Demo venue: https://openmic.techduinn.dpdns.org/demo
+Source: https://github.com/donn-duinn/openmic
 
 ## Why it exists
 
@@ -44,9 +45,9 @@ Your formal engineering is better than mine and you're stronger on network and
 infrastructure than I am. The milestone **v1 — First Venue Live** has the work
 split. Roughly:
 
-- **Infrastructure** (yours if you want it): custom domain and DNS, so the
-  thing I hand a publican isn't on `daniel-j-hogben.workers.dev`. Rate limiting
-  so a bored punter can't fill a list with fake names.
+- **Infrastructure** (yours if you want it): the custom domain and DNS are
+  done, so what I hand a publican is `openmic.techduinn.dpdns.org`. What's
+  left is rate limiting, so a bored punter can't fill a list with fake names.
 - **Field** (either of us): verify the venue list. `TARGETS.md` has ~45 rooms
   from public listings, but no contact details and no confirmation of how each
   one currently handles sign-ups. That research is the actual moat.

@@ -2,7 +2,11 @@
 
 Free open mic sign-up system for Melbourne venues.
 
-Live: https://openmic.daniel-j-hogben.workers.dev
+Live: https://openmic.techduinn.dpdns.org
+Source: https://github.com/donn-duinn/openmic
+
+**Run your own:** clone it and run [`./setup.sh`](setup.sh), which stands up a
+copy in one command. What else is needed is in [`HELP.md`](HELP.md).
 
 ## What it is
 
@@ -53,13 +57,29 @@ Cloudflare Workers + D1. Free tier covers this comfortably.
 
 ## Setup
 
+Easiest: `./setup.sh`. It does everything below, including creating your own
+database if the one in `wrangler.jsonc` is not in your account.
+
+By hand:
+
 ```bash
 npm install
 npx wrangler d1 create openmic --location apac   # put the id in wrangler.jsonc
-npx wrangler d1 execute openmic --remote --file=./schema.sql
+npx wrangler d1 execute openmic --remote --yes --file=./schema.sql
+for f in migrations/*.sql; do                    # required, not optional
+  npx wrangler d1 execute openmic --remote --yes --file="$f"
+done
 npx wrangler secret put ADMIN_KEY
 npx wrangler deploy
 ```
+
+**Two warnings.** `schema.sql` starts with `DROP TABLE IF EXISTS`, so running it
+against a live database wipes it. And the migrations are not optional: skip them
+and every venue page returns a 500, because the code reads tables and columns
+that only the migrations create.
+
+Step-by-step, including a dry run before you take it to a venue:
+[`HOWTO.md`](HOWTO.md).
 
 Local dev:
 
@@ -77,6 +97,5 @@ sign-up link, the printable poster, and the private host link to send them.
 ## Not done yet
 
 - SMS "you're up next" (needs a Twilio account and costs money per message)
-- Custom domain (currently on `workers.dev`)
 - Host can't edit venue settings after creation — has to go through admin
 - No export of who played, which venues would probably want eventually

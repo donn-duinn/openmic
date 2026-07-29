@@ -90,8 +90,8 @@ trust is not the thing being sold.
 
 ## What was actually built on night one
 
-Live at `openmic.daniel-j-hogben.workers.dev`. Cloudflare Workers plus D1 in
-APAC. Free tier. Source in this repo.
+Live at `openmic.techduinn.dpdns.org`. Cloudflare Workers plus D1 in
+APAC. Free tier. Source is public at github.com/donn-duinn/openmic.
 
 - **Sign-up page.** QR on the bar, performer signs up on their phone, sees the
   running order. No app, no account.

@@ -155,7 +155,7 @@ electorate offices do not read more.
 > Musician · self-taught AI and software practitioner
 > Tech Duinn (sole trader) · ABN 69 173 867 628
 > [ADDRESS] · [PHONE] · daniel.j.hogben@gmail.com
-> [PROJECT URL]
+> https://openmic.techduinn.dpdns.org
 
 ---
 
@@ -251,8 +251,9 @@ Victoria or a parliamentary inquiry submission is the likely source.
   their numbers.
 - **Get the contact list.** No MP, councillor or club contact details have been
   gathered yet.
-- **Custom domain.** A letter to a Member of Parliament linking to a
-  `workers.dev` address undercuts everything above it.
+- **Custom domain. Done.** The letters link to
+  `https://openmic.techduinn.dpdns.org`, not a `workers.dev` address. Check
+  every URL in a letter points at it before sending.
 
 ---
 

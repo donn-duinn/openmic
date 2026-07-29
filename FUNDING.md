@@ -376,7 +376,7 @@ Faster and cheaper than incorporating, and reversible.
   system that venues use to win 10,000 Gigs money and acquit it. That builds the
   track record, the venue relationships and the Music Victoria standing that make
   every subsequent application easier. Grants reward a demonstrated thing; this is
-  already live at openmic.daniel-j-hogben.workers.dev, which is a real advantage
+  already live at openmic.techduinn.dpdns.org, which is a real advantage
   over the many applicants pitching an idea.
 - **One caution on framing.** MASTER.md is right that disclosed self-interest
   survives and discovered self-interest does not. Grant applications are public

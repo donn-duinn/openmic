@@ -3,8 +3,8 @@
 **A free sign-up and running-order system for open mic nights, built by a
 Melbourne musician, given permanently free to venues.**
 
-Live: <https://openmic.daniel-j-hogben.workers.dev>
-Source: AGPL-3.0. Documents: CC BY-SA 4.0.
+Live: <https://openmic.techduinn.dpdns.org>
+Source: <https://github.com/donn-duinn/openmic>. AGPL-3.0. Documents: CC BY-SA 4.0.
 Version 1.0, 29 July 2026. Author: Daniel Hogben (donn), Tech Duinn.
 
 This document is public on purpose. Anyone may read it, quote it, or copy the
@@ -187,8 +187,8 @@ crew credits with pay tracking, tip jar split, label introduction opt-in
 an Acknowledgement of Country and an inclusion statement.
 
 Not finished: the APRA performance report generator (schema in place, generation
-not built), a host-entered tip jar total, SMS "you are up in ten minutes", a
-custom domain, host-editable venue settings, and an export of who played.
+not built), a host-entered tip jar total, SMS "you are up in ten minutes",
+host-editable venue settings, and an export of who played.
 
 **Design constraints held deliberately:**
 
@@ -759,8 +759,6 @@ distinguishes it from applicants pitching an idea.
 
 - One venue live on the system, handed over in person rather than by email. That
   requires their suburb, night, host name and maximum songs per performer.
-- Custom domain, because a letter linking to a `workers.dev` address undercuts
-  everything above it.
 - Rate limiting, so a bored punter cannot fill a list with fake names.
 - Submit or consciously skip Music Works, before 2pm on 5 August.
 
@@ -856,11 +854,11 @@ generic, it becomes exactly the thing this caution warns about.**
 
 Three things must be true before the first envelope:
 
-1. **The repository is public.** Every claim rests on the source being
-   inspectable. A letter arguing for open, verifiable software that links to a
-   private repository defeats itself.
-2. **The custom domain is live.** A letter to a minister linking to a
-   `workers.dev` address undercuts everything above it.
+1. **The repository is public.** Done. It is at
+   https://github.com/donn-duinn/openmic. Every claim rests on the source being
+   inspectable, and it now is.
+2. **The custom domain is live.** Done. Letters link to
+   https://openmic.techduinn.dpdns.org, not a `workers.dev` address.
 3. **Names are confirmed on the day**, from the jurisdiction's own current
    ministry list. Ministries change, and the Victorian creative industries
    portfolio in particular has been volatile. Addressing by portfolio title is
@@ -963,7 +961,8 @@ standing between this and a mail-merge.
 > Musician · self-taught AI and software practitioner
 > Tech Duinn, sole trader · **ABN 69 173 867 628**
 > [POSTAL ADDRESS] · [PHONE] · daniel.j.hogben@gmail.com
-> [PROJECT URL] · source and full business plan: [REPO URL]
+> https://openmic.techduinn.dpdns.org · source and full business plan:
+> https://github.com/donn-duinn/openmic
 
 ### 16.4 What changes, jurisdiction by jurisdiction
 
@@ -1187,8 +1186,10 @@ reply. Keep that log private, not in this repository.
 
 ### 16.6 Checklist before the first envelope
 
-- [ ] Repository public, and checked for anything that should not be in it
-- [ ] Custom domain live, and every URL in the letter points at it
+- [x] Repository public at https://github.com/donn-duinn/openmic. Keep checking
+      for anything that should not be in it
+- [x] Custom domain live at https://openmic.techduinn.dpdns.org. Check every URL
+      in the letter points at it
 - [ ] Postal address and phone filled in
 - [ ] ABN correct in both the opening paragraph and the signature block
 - [ ] Current officeholder confirmed on the day, from the jurisdiction's own list
