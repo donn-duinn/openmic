@@ -5,6 +5,7 @@
   "description": "Free open mic sign-up system for Melbourne venues",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "node --test test/*.test.js",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute openmic --local --file=./schema.sql && npm run db:migrate:local",
     "db:remote": "wrangler d1 execute openmic --remote --file=./schema.sql && npm run db:migrate:remote",

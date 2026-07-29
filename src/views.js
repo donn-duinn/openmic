@@ -103,7 +103,12 @@ export function layout(title, body, opts = {}) {
 <title>${esc(title)}</title>
 <style>${CSS}</style>
 ${opts.refresh ? `<meta http-equiv="refresh" content="${opts.refresh}">` : ''}
-</head><body>${body}</body></html>`;
+</head><body>${body}${opts.ui ? '<script src="/static/ui.js" defer></script>' : ''}${
+    opts.stageLive
+      ? '<div id="stale" class="lbl" style="display:none;position:fixed;bottom:2vh;left:0;right:0;text-align:center;opacity:.55;font-size:1rem"></div>'
+        + '<script src="/static/stage.js" defer></script>'
+      : ''
+  }</body></html>`;
 }
 
 // `needs` is a free-text access field. People write real things in it: a
@@ -429,7 +434,7 @@ export function stagePage(venue, performers) {
   const next = queue[0];
   return layout(
     `Now playing — ${venue.name}`,
-    `<div class="stage">
+    `<div class="stage" id="stage">
 <div class="lbl">${onstage ? 'On stage now' : 'Up next'}</div>
 <div class="now">${esc(onstage ? onstage.name : next ? next.name : 'Open mic')}</div>
 ${(() => {
@@ -450,7 +455,7 @@ ${
 <div class="next" style="font-size:1rem;margin-top:2.5em;opacity:.5">
 ${esc(venue.name)} · ${queue.length} still to play</div>
 </div>`,
-    { refresh: 15 },
+    { stageLive: true },
   );
 }
 
@@ -596,17 +601,41 @@ Credit is on top of pay, never instead of it.</p>
 
 <h2>End of night</h2>
 <div class="card">
-<p class="muted">Clears the list so next week starts fresh. The list also
-resets automatically each night at 5am.</p>
+<p class="muted">Everyone's phone number is deleted automatically after two
+weeks. This clears tonight's straight away, and keeps the running order.</p>
 <form method="post" action="${base}/act">
+<input type="hidden" name="action" value="purge_contacts">
+<button class="btn ghost" type="submit">Delete tonight's phone numbers</button>
+</form>
+</div>
+
+<div class="card">
+<p class="muted">Clears the list so next week starts fresh. The list also
+resets automatically each night at 5am. There is no undo.</p>
+<form method="post" action="${base}/act"
+data-confirm="Clear tonight's entire list? This cannot be undone.">
 <input type="hidden" name="action" value="reset">
 <button class="btn ghost" type="submit">Clear tonight's list</button>
+</form>
+</div>
+
+<h2>This link</h2>
+<div class="card">
+<p class="muted">Anyone with this link can run the night. If it has been
+screenshotted, left on a bar tablet, or the host has changed, get a new one.
+The old link stops working immediately and you will need to send the new one
+to whoever runs the room.</p>
+<form method="post" action="${base}/act"
+data-confirm="Issue a new host link? Every copy of the current one stops working.">
+<input type="hidden" name="action" value="rotate_link">
+<button class="btn ghost" type="submit">Get a new host link</button>
 </form>
 </div>
 
 <div class="foot">Bookmark this page — it's your private host link.<br>
 Don't share it publicly or punters can reorder the list.</div>
 </div>`,
+    { ui: true },
   );
 }
 
@@ -629,9 +658,10 @@ ${qrSvg}
 <p class="muted">No app. No account. Put your name in, watch the running order
 on your phone.</p>
 </div>
-<button class="noprint" onclick="window.print()">Print this</button>
+<button class="noprint" data-print="1">Print this</button>
 <div class="foot noprint">Stick it on the bar and next to the stage.</div>
 </div>`,
+    { ui: true },
   );
 }
 

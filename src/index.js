@@ -26,6 +26,90 @@ import {
   stagePage,
 } from './views.js';
 
+// The screen behind the bar is unattended for four hours. A meta refresh turns
+// one failed request into a browser error page that never retries, so a
+// two-second wifi blip used to kill the display for the rest of the night.
+//
+// This polls instead, keeps the last good list on screen when the network is
+// away, and says so quietly rather than going blank. Nobody has to notice.
+const STAGE_JS = `(function () {
+  var el = document.getElementById('stage');
+  var stale = document.getElementById('stale');
+  if (!el) return;
+  var slug = location.pathname.split('/').filter(Boolean)[0];
+  var lastGood = Date.now();
+  var fails = 0;
+
+  function two(n) { return n < 10 ? '0' + n : '' + n; }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function render(d) {
+    var who = d.onstage || d.next;
+    var html = '<div class="lbl">' + (d.onstage ? 'On stage now' : 'Up next') + '</div>';
+    html += '<div class="now">' + esc(who ? who.name : 'Open mic') + '</div>';
+    if (who && who.instagram) {
+      html += '<div class="lbl" style="margin-top:.4em;opacity:.85">@' + esc(who.instagram) + '</div>';
+    }
+    if (d.onstage && d.next) {
+      html += '<div class="next">Next up: <b>' + esc(d.next.name) + '</b></div>';
+    } else if (!d.onstage && d.then) {
+      html += '<div class="next">Then: <b>' + esc(d.then.name) + '</b></div>';
+    } else if (!d.waiting && !d.onstage) {
+      html += '<div class="next">Sign up at <b>' + esc(d.slug) + '</b> \u2014 scan the QR on the bar</div>';
+    }
+    html += '<div class="next" style="font-size:1rem;margin-top:2.5em;opacity:.5">'
+         + esc(d.venue) + ' \u00b7 ' + d.waiting + ' still to play</div>';
+    el.innerHTML = html;
+  }
+
+  function tick() {
+    fetch('/' + slug + '/stage.json', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        render(d);
+        lastGood = Date.now();
+        fails = 0;
+        if (stale) stale.style.display = 'none';
+      })
+      .catch(function () {
+        // Keep whatever is on screen. Only admit it once it is genuinely old.
+        fails++;
+        if (stale && Date.now() - lastGood > 60000) {
+          var t = new Date(lastGood);
+          stale.textContent = 'Reconnecting \u2014 list as at ' + two(t.getHours()) + ':' + two(t.getMinutes());
+          stale.style.display = 'block';
+        }
+      });
+  }
+
+  setInterval(tick, 10000);
+  tick();
+  // A phone or tablet that slept comes back straight away rather than waiting.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) tick();
+  });
+  window.addEventListener('online', tick);
+})();`;
+
+// Two behaviours the pages need and CSP will not allow inline: a confirmation
+// before anything destructive, and the print button on the poster. An inline
+// onsubmit is blocked silently, which means a "there is no undo" guard that
+// never fires. Served from /static so script-src can stay 'self'.
+const UI_JS = `(function () {
+  document.addEventListener('submit', function (e) {
+    var msg = e.target.getAttribute && e.target.getAttribute('data-confirm');
+    if (msg && !window.confirm(msg)) e.preventDefault();
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('data-print')) window.print();
+  });
+})();`;
+
 // Which performer is this phone? Set on sign-up, scoped to the venue path.
 function meCookieName(slug) {
   return `om_${slug.replace(/[^a-z0-9]/g, '')}`;
@@ -136,12 +220,37 @@ async function signupThrottled(env, request, venue, night) {
   )
     .bind(ipHash, venue.slug, since)
     .first();
+  return (row?.n || 0) >= SIGNUP_MAX_PER_WINDOW;
+}
+
+// Recorded only when someone actually gets on the list. Counting every POST
+// meant a person who mistyped their name four times was locked out before they
+// had succeeded once.
+async function recordSignup(env, request, venue, night) {
+  const ipHash = await hashIp(request, night);
   await env.DB.prepare(
     'INSERT INTO signup_hits (ip_hash, venue_slug, night, created_at) VALUES (?, ?, ?, ?)',
   )
     .bind(ipHash, venue.slug, night, new Date().toISOString())
     .run();
-  return (row?.n || 0) >= SIGNUP_MAX_PER_WINDOW;
+}
+
+// Sign-up outcomes are redirected, not rendered in the POST response. A page
+// rendered at /:slug/join carries the sign-up page's own auto-refresh, and that
+// refresh re-requests a POST-only path, so the browser lands on "Not found."
+// Someone is told the list is full, pockets their phone, looks again and the
+// app appears broken. Redirect to the venue page and say it there.
+const JOIN_MESSAGES = {
+  closed: 'Sign-ups are closed for tonight.',
+  noname: 'Put a name in so the host knows who to call up.',
+  full: "Tonight's list is full.",
+  filled: "Tonight's list filled up while you were typing. Ask the host.",
+  dupe: 'That name is already on the list. Talk to the host if that is not you.',
+  rate: 'That is a lot of sign-ups from this connection in a short time. Wait a couple of minutes, or ask the host to add you.',
+};
+
+function joinOutcome(venue, code) {
+  return redirect(`/${venue.slug}?e=${code}`);
 }
 
 async function handleJoin(request, env, venue) {
@@ -150,41 +259,18 @@ async function handleJoin(request, env, venue) {
   const name = clean(form.get('name'), 60);
 
   if (await signupThrottled(env, request, venue, night)) {
-    return html(
-      signupPage(venue, await getPerformers(env, venue.slug, night), {
-        error:
-          'That is a lot of sign-ups from one phone. Wait a couple of minutes, or ask the host to add you.',
-      }),
-      429,
-    );
+    return joinOutcome(venue, 'rate');
   }
 
-  if (!venue.signups_open) {
-    return html(signupPage(venue, await getPerformers(env, venue.slug, night), {
-      error: 'Sign-ups are closed for tonight.',
-    }));
-  }
-  if (!name) {
-    return html(
-      signupPage(venue, await getPerformers(env, venue.slug, night), {
-        error: 'Put a name in so the host knows who to call up.',
-      }),
-    );
-  }
+  if (!venue.signups_open) return joinOutcome(venue, 'closed');
+  if (!name) return joinOutcome(venue, 'noname');
 
   const existing = await getPerformers(env, venue.slug, night);
-  if (existing.length >= venue.capacity) {
-    return html(
-      signupPage(venue, existing, { error: "Tonight's list is full." }),
-    );
-  }
-  // Cheap duplicate guard — same name, same night.
+  if (existing.length >= venue.capacity) return joinOutcome(venue, 'full');
+  // Cheap duplicate guard — same name, same night. The unique index is the
+  // real one; this just gives a friendlier answer before the write.
   if (existing.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
-    return html(
-      signupPage(venue, existing, {
-        error: `"${name}" is already on the list. Talk to the host if that's not you.`,
-      }),
-    );
+    return joinOutcome(venue, 'dupe');
   }
 
   const position = existing.length
@@ -226,29 +312,19 @@ async function handleJoin(request, env, venue) {
       )
       .run();
 
-    if (!res.meta || res.meta.changes === 0) {
-      return html(
-        signupPage(venue, await getPerformers(env, venue.slug, night), {
-          error: "Tonight's list filled up while you were typing. Ask the host.",
-        }),
-      );
-    }
+    if (!res.meta || res.meta.changes === 0) return joinOutcome(venue, 'filled');
   } catch (err) {
     // The unique index fired: someone with this name is already on tonight.
-    if (String(err).includes('UNIQUE')) {
-      return html(
-        signupPage(venue, await getPerformers(env, venue.slug, night), {
-          error: `"${name}" is already on the list. Talk to the host if that's not you.`,
-        }),
-      );
-    }
+    if (String(err).includes('UNIQUE')) return joinOutcome(venue, 'dupe');
     throw err;
   }
 
-  const body = signupPage(venue, await getPerformers(env, venue.slug, night), {
-    joined: position,
-  });
-  const res = html(body);
+  await recordSignup(env, request, venue, night);
+
+  // Redirect on success too, so a refresh or a back button cannot resubmit the
+  // form. A nervous person taps that button twice; they should not end up on
+  // the list twice or see a browser resend warning.
+  const res = redirect(`/${venue.slug}?joined=${position}`);
   res.headers.append(
     'set-cookie',
     cookieHeader(meCookieName(venue.slug), id, `/${venue.slug}`),
@@ -342,8 +418,10 @@ async function handleHostAction(request, env, venue) {
   // phone number is for tonight's running order, so the host can honour that
   // without waiting for the scheduled purge.
   if (action === 'purge_contacts') {
+    // Clear the email too. Setting contact_purged_at makes the retention cron
+    // skip this row forever, so anything left behind here is kept for good.
     await env.DB.prepare(
-      `UPDATE performers SET phone = '', contact_purged_at = ?
+      `UPDATE performers SET phone = '', contact_email = '', contact_purged_at = ?
         WHERE venue_slug = ? AND night = ?`,
     )
       .bind(new Date().toISOString(), venue.slug, night)
@@ -533,6 +611,27 @@ export default {
     try {
       if (parts.length === 0) return html(landingPage());
 
+      if (parts[0] === 'static' && parts[1] === 'ui.js') {
+        return new Response(UI_JS, {
+          headers: {
+            'content-type': 'application/javascript; charset=utf-8',
+            'cache-control': 'public, max-age=300',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+
+      // /static/stage.js — keeps the screen behind the bar alive
+      if (parts[0] === 'static' && parts[1] === 'stage.js') {
+        return new Response(STAGE_JS, {
+          headers: {
+            'content-type': 'application/javascript; charset=utf-8',
+            'cache-control': 'public, max-age=300',
+            'x-content-type-options': 'nosniff',
+          },
+        });
+      }
+
       if (parts[0] === 'robots.txt') {
         return new Response('User-agent: *\nDisallow: /\n', {
           headers: { 'content-type': 'text/plain' },
@@ -563,8 +662,12 @@ export default {
           getCrew(env, slug, night),
           getNight(env, slug, night),
         ]);
+        const outcome = JOIN_MESSAGES[url.searchParams.get('e') || ''];
+        const joinedAt = clampInt(url.searchParams.get('joined'), 1, 999, 0);
         return html(
           signupPage(venue, performers, {
+            error: outcome,
+            joined: joinedAt || undefined,
             me,
             crew,
             split: computeSplit(nightRow, performers),
@@ -588,6 +691,21 @@ export default {
       // /:slug/join
       if (parts[1] === 'join' && method === 'POST') {
         return handleJoin(request, env, venue);
+      }
+
+      // /:slug/stage.json — state for the big screen, polled by stage.js
+      if (parts[1] === 'stage.json') {
+        const list = await getPerformers(env, slug, night);
+        const onstage = list.find((p) => p.status === 'onstage') || null;
+        const queue = list.filter((p) => p.status === 'waiting');
+        return json({
+          onstage: onstage ? { name: onstage.name, instagram: onstage.instagram || '' } : null,
+          next: queue[0] ? { name: queue[0].name, instagram: queue[0].instagram || '' } : null,
+          then: queue[1] ? { name: queue[1].name } : null,
+          waiting: queue.length,
+          venue: venue.name,
+          slug: venue.slug,
+        });
       }
 
       // /:slug/stage

@@ -15,13 +15,28 @@ export function esc(s) {
 const NIGHT_ROLLOVER_HOURS = 5;
 
 export function melbourneNight(now = new Date()) {
-  const shifted = new Date(now.getTime() - NIGHT_ROLLOVER_HOURS * 3600 * 1000);
-  return new Intl.DateTimeFormat('en-CA', {
+  // Subtracting five hours from the absolute instant looks equivalent and is
+  // not. On the first Sunday in April an hour repeats, so absolute arithmetic
+  // rolls the night over at 4am instead of 5am, and a gig still running would
+  // silently split into two running orders. Do the subtraction on the local
+  // calendar instead, where 5am means 5am whatever the clocks did.
+  const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Australia/Melbourne',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(shifted);
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const get = (t) => parts.find((p) => p.type === t).value;
+  const [y, m, d] = [Number(get('year')), Number(get('month')), Number(get('day'))];
+  if (Number(get('hour')) >= NIGHT_ROLLOVER_HOURS) {
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+  // Before 5am, the night belongs to the previous calendar day. UTC maths is
+  // safe here because it is pure date arithmetic, with no timezone left in it.
+  const prev = new Date(Date.UTC(y, m - 1, d) - 86400000);
+  return prev.toISOString().slice(0, 10);
 }
 
 export function melbourneTime(now = new Date()) {
@@ -80,8 +95,10 @@ export function html(body, status = 200) {
       'referrer-policy': 'same-origin',
       // Styles are inline in layout(); there is no JavaScript anywhere in this
       // app and no external asset of any kind, so the policy can be this tight.
+      // script-src 'self' covers /static/stage.js, which keeps the screen behind
+      // the bar alive through a wifi drop. connect-src 'self' lets it poll.
       'content-security-policy':
-        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
       'x-frame-options': 'DENY',
       'strict-transport-security': 'max-age=15552000',
     },
